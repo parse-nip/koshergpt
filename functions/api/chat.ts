@@ -139,7 +139,7 @@ export async function onRequestPost(context: {
       return jsonError(400, "messages array is required");
     }
 
-    const model = env.OPENROUTER_MODEL?.trim() || "openrouter/free";
+    const model = env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash";
 
     const openRouterResponse = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",
@@ -148,7 +148,7 @@ export async function onRequestPost(context: {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${openRouterApiKey}`,
-          "HTTP-Referer": "https://koshergpt.app",
+          "HTTP-Referer": "https://koshergpt.popped.dev",
           "X-Title": "KosherGPT",
         },
         body: JSON.stringify({
