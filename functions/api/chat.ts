@@ -44,13 +44,13 @@ When listing sources, ALWAYS include a URL in parentheses at the end of each sou
 WEB SEARCH GROUNDING (when you use web retrieval):
 10. Prefer primary texts on Sefaria (Tanakh/Talmud/Rishon/Acharon citations) before secondary commentary sites.
 11. When you retrieve a text from Sefaria.org, use the exact URL from the snippet (not a plausible-but-unseen URL).
+12. If a user specfically requests a different source, use the URL from the user's request.
+13. Treat search snippets as hypotheses. Do not affirm a textual claim unless you either (a) have a snippet that clearly supports it or (b) can ground it purely from canonical Jewish texts listed in RULE 2 without implying unseen citations.
+14. Map every substantive factual claim grounded in retrieved web snippets to ONE numbered citation in **Sources** whose URL is copied exactly from a returned hit (no plausible-but-unseen URLs).
+15. If retrieval is thin or contradictory, say so plainly and widen with another focused query instead of improvising quotations.
+16. Use multiple searches when helpful (Hebrew keywords alongside English) but avoid near-duplicate queries that waste bandwidth.
 
-11. Treat search snippets as hypotheses. Do not affirm a textual claim unless you either (a) have a snippet that clearly supports it or (b) can ground it purely from canonical Jewish texts listed in RULE 2 without implying unseen citations.
-12. Map every substantive factual claim grounded in retrieved web snippets to ONE numbered citation in **Sources** whose URL is copied exactly from a returned hit (no plausible-but-unseen URLs).
-13. If retrieval is thin or contradictory, say so plainly and widen with another focused query instead of improvising quotations.
-14. Use multiple searches when helpful (Hebrew keywords alongside English) but avoid near-duplicate queries that waste bandwidth.
-
-15. After providing your response, suggest 3 follow-up questions the user might want to ask, formatted as:
+17. After providing your response, suggest 3 follow-up questions the user might want to ask, formatted as:
 **Follow-up Questions**:
 - Question 1
 - Question 2
@@ -139,7 +139,7 @@ export async function onRequestPost(context: {
       return jsonError(400, "messages array is required");
     }
 
-    const model = env.OPENROUTER_MODEL?.trim() || "openrouter/auto";
+    const model = env.OPENROUTER_MODEL?.trim() || "openrouter/free";
 
     const openRouterResponse = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",
