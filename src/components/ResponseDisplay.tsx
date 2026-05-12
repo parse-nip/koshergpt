@@ -194,8 +194,8 @@ export function ResponseDisplay({
             Follow-up Questions
           </h3>
           <ul className="grid list-none gap-2 p-0 sm:grid-cols-2 sm:gap-2">
-            {parsed.followUps.map((q) => (
-              <li key={q} className="min-w-0">
+            {parsed.followUps.map((q, idx) => (
+              <li key={`${idx}-${q}`} className="min-w-0">
                 <Button
                   type="button"
                   variant="outline"
