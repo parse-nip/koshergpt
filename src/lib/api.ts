@@ -1,6 +1,7 @@
 import type { Message } from '../types/chat';
 
-const API_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+const API_URL = import.meta.env.VITE_CHAT_API_URL ?? '';
+const API_BEARER = import.meta.env.VITE_CHAT_API_KEY ?? '';
 
 export async function streamChat(
   messages: Message[],
@@ -9,11 +10,20 @@ export async function streamChat(
   onError: (error: string) => void
 ) {
   try {
+    if (!API_URL) {
+      onError('Missing VITE_CHAT_API_URL (HTTPS URL of your chat proxy)');
+      return;
+    }
+    if (!API_BEARER) {
+      onError('Missing VITE_CHAT_API_KEY');
+      return;
+    }
+
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        Authorization: `Bearer ${API_BEARER}`,
       },
       body: JSON.stringify({ messages }),
     });

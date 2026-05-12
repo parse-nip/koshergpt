@@ -9,15 +9,30 @@ import { ResponseDisplay } from './components/ResponseDisplay';
 import { Sidebar } from './components/Sidebar';
 import { IconMenu, IconCopy } from './components/icons';
 import { streamChat } from './lib/api';
+import { loadChatState, saveChatState } from './lib/chatStorage';
 import type { Message, Conversation } from './types/chat';
+
+function readInitialUiState(): {
+  conversations: Conversation[];
+  activeConvId: string | null;
+} {
+  const data = loadChatState();
+  const activeValid =
+    data.activeConvId && data.conversations.some((c) => c.id === data.activeConvId)
+      ? data.activeConvId
+      : null;
+  return { conversations: data.conversations, activeConvId: activeValid };
+}
+
+const INITIAL_UI = readInitialUiState();
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
 export default function App() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>(() => INITIAL_UI.conversations);
+  const [activeConvId, setActiveConvId] = useState<string | null>(() => INITIAL_UI.activeConvId);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -32,6 +47,10 @@ export default function App() {
   useEffect(() => {
     scrollToBottom();
   }, [streamingContent, activeConversation?.messages.length, scrollToBottom]);
+
+  useEffect(() => {
+    saveChatState({ conversations, activeConvId });
+  }, [conversations, activeConvId]);
 
   function handleNewConversation() {
     setActiveConvId(null);
