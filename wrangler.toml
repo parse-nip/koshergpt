@@ -1,0 +1,8 @@
+name = "koshergpt"
+compatibility_date = "2025-05-12"
+
+# Cloudflare Pages: static build + Functions in ./functions
+pages_build_output_dir = "dist"
+
+[vars]
+OPENROUTER_MODEL = "openrouter/auto"

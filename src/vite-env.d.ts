@@ -1,9 +1,12 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** Full HTTPS URL of your chat proxy (e.g. Cloudflare Worker). */
+  /**
+   * OpenRouter proxy URL (same OpenAI-compatible streaming API as before).
+   * Leave unset to use same-origin `/api/chat` (recommended on Cloudflare Pages).
+   */
   readonly VITE_CHAT_API_URL?: string;
-  /** Bearer token sent with `Authorization` to `VITE_CHAT_API_URL`. */
+  /** If Cloudflare worker env `CHAT_API_KEY` is set, paste the same value here. */
   readonly VITE_CHAT_API_KEY?: string;
 }
 

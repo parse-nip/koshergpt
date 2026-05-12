@@ -12,4 +12,12 @@ export default defineConfig({
       '@': srcPath,
     },
   },
+  server: {
+    proxy: {
+      '/api/chat': {
+        target: 'http://127.0.0.1:8788',
+        changeOrigin: true,
+      },
+    },
+  },
 });
