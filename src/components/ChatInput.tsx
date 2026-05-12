@@ -7,17 +7,26 @@ interface ChatInputProps {
   onSubmit: (message: string) => void;
   disabled: boolean;
   placeholder?: string;
+  replyPreview?: string | null;
+  onClearReply?: () => void;
 }
 
-export function ChatInput({ onSubmit, disabled, placeholder }: ChatInputProps) {
+export function ChatInput({
+  onSubmit,
+  disabled,
+  placeholder,
+  replyPreview,
+  onClearReply,
+}: ChatInputProps) {
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
-    }
+    const el = textareaRef.current;
+    if (!el) return;
+    /* Reset scrollHeight so clearing input always shrinks the box (fixes “grows each message”). */
+    el.style.height = '0px';
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [input]);
 
   function submit() {
@@ -40,8 +49,31 @@ export function ChatInput({ onSubmit, disabled, placeholder }: ChatInputProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="relative">
-      <div className="mx-auto flex max-w-2xl items-center gap-2 rounded-xl border border-parchment-dark bg-white px-3 py-2 shadow-sm transition-all duration-200 focus-within:border-gold/60 focus-within:shadow-md">
+    <form onSubmit={handleSubmit} className="relative space-y-2">
+      {replyPreview ? (
+        <div className="mx-auto flex w-full max-w-chat items-start justify-between gap-2 rounded-lg border border-gold/30 bg-gold/5 px-3 py-2 font-body text-xs text-navy/80">
+          <p className="min-w-0 flex-1 whitespace-pre-wrap break-words leading-snug">
+            <span className="font-heading text-[0.65rem] font-bold uppercase tracking-wide text-navy/45">
+              Reply to
+            </span>
+            <br />
+            <span className="text-navy/70">{replyPreview}</span>
+          </p>
+          {onClearReply ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-auto shrink-0 px-2 py-1 text-xs shadow-none text-navy/50 hover:text-navy"
+              onClick={onClearReply}
+            >
+              Dismiss
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="mx-auto flex w-full max-w-chat items-center gap-2 rounded-xl border border-parchment-dark bg-white px-3 py-2 shadow-sm transition-all duration-200 focus-within:border-gold/60 focus-within:shadow-md">
         <Textarea
           ref={textareaRef}
           value={input}

@@ -392,7 +392,7 @@ export default function App() {
           )}
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-6">
           <div className="mx-auto max-w-chat">
             {showHero ? (
               <div className="flex min-h-[60vh] flex-col items-center justify-center">
@@ -410,7 +410,7 @@ export default function App() {
                     return (
                       <div key={bubbleKey} className="space-y-2">
                         <div className="flex justify-end">
-                          <div className="max-w-[85%] break-words rounded-2xl rounded-tr-sm bg-navy px-5 py-3 font-body text-white">
+                          <div className="max-w-[min(85%,100%)] break-words rounded-2xl rounded-tr-sm bg-navy px-4 py-2.5 font-body text-sm text-white sm:px-5 sm:py-3 sm:text-base">
                             <div className="whitespace-pre-wrap">{shown}</div>
                           </div>
                         </div>
@@ -433,7 +433,7 @@ export default function App() {
 
                   return (
                     <div key={bubbleKey}>
-                      <div className="rounded-xl border border-parchment-dark bg-white/60 p-5">
+                      <div className="rounded-xl border border-parchment-dark bg-white/60 p-4 sm:p-5">
                         <ResponseDisplay
                           content={msg.content}
                           isStreaming={false}
@@ -447,7 +447,7 @@ export default function App() {
                 })}
 
                 {isStreaming && streamingContent ? (
-                  <div className="rounded-xl border border-parchment-dark bg-white/60 p-5">
+                  <div className="rounded-xl border border-parchment-dark bg-white/60 p-4 sm:p-5">
                     <ResponseDisplay content={streamingContent} isStreaming={true} />
                   </div>
                 ) : null}
@@ -460,7 +460,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-parchment-dark bg-parchment/80 px-4 py-4 backdrop-blur-sm">
+        <div className="shrink-0 border-t border-parchment-dark bg-parchment/80 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-4">
           <div className="mx-auto max-w-chat">
             <ChatInput
               onSubmit={(draft) => void handleSendMessage(draft)}
@@ -471,7 +471,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-parchment-dark bg-parchment px-4 py-2">
+        <div className="shrink-0 border-t border-parchment-dark bg-parchment px-3 py-2 sm:px-4">
           <p className="mx-auto max-w-chat text-center font-body text-xs text-navy/40">
             KosherGPT is an AI research tool for learning and exploration. It does not replace the psak (ruling) of a
             qualified rabbi. Always consult your Local Orthodox Rabbi (LOR) for practical halachic decisions.

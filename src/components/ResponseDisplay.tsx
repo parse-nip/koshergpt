@@ -11,6 +11,8 @@ interface ResponseDisplayProps {
   content: string;
   isStreaming: boolean;
   onFollowUp?: (question: string) => void;
+  onReply?: () => void;
+  onRetry?: () => void;
 }
 
 function renderTextWithCitations(text: string, sources: Source[]): React.ReactNode[] {
@@ -109,7 +111,13 @@ function renderFormattedBlock(text: string, sources: Source[]): React.ReactNode 
   return <>{elements}</>;
 }
 
-export function ResponseDisplay({ content, isStreaming, onFollowUp }: ResponseDisplayProps) {
+export function ResponseDisplay({
+  content,
+  isStreaming,
+  onFollowUp,
+  onReply,
+  onRetry,
+}: ResponseDisplayProps) {
   const [copied, setCopied] = useState(false);
   const parsed = useMemo(() => parseResponse(content), [content]);
 
@@ -185,19 +193,45 @@ export function ResponseDisplay({ content, isStreaming, onFollowUp }: ResponseDi
           <h3 className="font-heading text-xs font-bold uppercase tracking-wide text-navy/50">
             Follow-up Questions
           </h3>
-          <div className="flex flex-wrap gap-2">
+          <ul className="grid list-none gap-2 p-0 sm:grid-cols-2 sm:gap-2">
             {parsed.followUps.map((q) => (
-              <Button
-                type="button"
-                key={q}
-                variant="outline"
-                className="font-body hover:border-gold/40 hover:bg-background hover:text-navy border-parchment-dark bg-white/60 text-left whitespace-normal rounded-lg text-sm shadow-none py-2 h-auto text-navy/70 px-3"
-                onClick={() => onFollowUp(q)}
-              >
-                {q}
-              </Button>
+              <li key={q} className="min-w-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="font-body h-auto w-full min-h-11 justify-start whitespace-normal rounded-lg border-parchment-dark bg-white/60 px-3 py-2.5 text-left text-sm text-navy/70 shadow-none hover:border-gold/40 hover:bg-background hover:text-navy sm:min-h-0 sm:py-2"
+                  onClick={() => onFollowUp(q)}
+                >
+                  {q}
+                </Button>
+              </li>
             ))}
-          </div>
+          </ul>
+        </div>
+      )}
+
+      {!isStreaming && content && (onReply || onRetry) && (
+        <div className="flex flex-col gap-2 border-t border-parchment-dark pt-3 sm:flex-row sm:flex-wrap sm:items-center">
+          {onRetry ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="shadow-none h-auto py-1.5 px-3 text-xs font-body text-navy/70 border-parchment-dark"
+              onClick={onRetry}
+            >
+              Retry
+            </Button>
+          ) : null}
+          {onReply ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="shadow-none h-auto py-1.5 px-3 text-xs font-body text-navy/70 border-parchment-dark"
+              onClick={onReply}
+            >
+              Reply in thread
+            </Button>
+          ) : null}
         </div>
       )}
 
