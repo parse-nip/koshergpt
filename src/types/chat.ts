@@ -7,7 +7,10 @@ export interface Source {
 
 export interface Message {
   role: 'user' | 'assistant';
+  /** Full text stored for copying + model context */
   content: string;
+  /** Optional short bubble text (reply threads store full quoting in content) */
+  preview?: string;
 }
 
 export interface ParsedResponse {

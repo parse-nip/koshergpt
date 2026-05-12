@@ -12,7 +12,7 @@ interface SidebarProps {
 
 export function Sidebar({ conversations, activeId, onSelect, onNew }: SidebarProps) {
   return (
-    <aside className="flex h-full w-full flex-col border-r border-parchment-dark bg-white/50">
+    <aside className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-r border-parchment-dark bg-white/50">
       <div className="border-b border-parchment-dark p-4">
         <Logo size="small" />
       </div>
@@ -29,15 +29,15 @@ export function Sidebar({ conversations, activeId, onSelect, onNew }: SidebarPro
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3 pb-3">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-3 pb-3">
         <p className="font-heading px-3 py-2 text-xs uppercase tracking-wide text-navy/40">Recent Questions</p>
-        <div className="space-y-1">
+        <div className="w-full space-y-1">
           {conversations.map((conv) => (
             <Button
               type="button"
               key={conv.id}
               variant="ghost"
-              className={`h-auto min-h-[2.5rem] w-full justify-start gap-2 rounded-lg px-3 py-2.5 text-left shadow-none whitespace-normal hover:bg-accent ${
+              className={`min-w-0 h-auto min-h-[2.5rem] w-full max-w-full justify-start gap-2 rounded-lg px-3 py-2.5 text-left shadow-none whitespace-normal break-words hover:bg-accent ${
                 activeId === conv.id
                   ? 'border border-gold/20 bg-gold/10 text-navy'
                   : 'text-navy/60 hover:text-navy'
@@ -45,7 +45,7 @@ export function Sidebar({ conversations, activeId, onSelect, onNew }: SidebarPro
               onClick={() => onSelect(conv.id)}
             >
               <IconMessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 self-start" />
-              <span className="font-body text-sm leading-snug line-clamp-2">{conv.title}</span>
+              <span className="min-w-0 flex-1 font-body text-sm leading-snug line-clamp-3 text-left">{conv.title}</span>
             </Button>
           ))}
         </div>

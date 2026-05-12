@@ -1,15 +1,16 @@
 import type { Message } from '../types/chat';
 
+import { extractAssistantDelta } from './extractOpenAIStreamDelta';
+
 /** Override if your OpenRouter proxy is on another origin. Default `/api/chat` matches Cloudflare Pages Functions. */
-const API_URL =
-  import.meta.env.VITE_CHAT_API_URL?.trim() || '/api/chat';
+const API_URL = import.meta.env.VITE_CHAT_API_URL?.trim() || '/api/chat';
 const API_BEARER = import.meta.env.VITE_CHAT_API_KEY?.trim() ?? '';
 
 export async function streamChat(
   messages: Message[],
   onChunk: (text: string) => void,
   onDone: () => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
 ) {
   try {
     const response = await fetch(API_URL, {
@@ -41,25 +42,38 @@ export async function streamChat(
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
+      const rawLines = buffer.split('\n');
+      buffer = rawLines.pop() || '';
 
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6);
-          if (data === '[DONE]') {
-            onDone();
-            return;
+      for (const raw of rawLines) {
+        let line = raw.trimEnd();
+
+        while (line.startsWith(':')) {
+          const chop = line.indexOf('\n');
+          if (chop === -1) {
+            line = '';
+            break;
           }
-          try {
-            const parsed = JSON.parse(data);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
-              onChunk(content);
-            }
-          } catch {
-            // skip malformed JSON lines
-          }
+          line = line.slice(chop + 1).trimStart();
+        }
+
+        line = line.trimEnd();
+        if (!line.startsWith('data:')) continue;
+
+        const data = line.slice('data:'.length).trimStart();
+        if (data === '') continue;
+
+        if (data === '[DONE]') {
+          onDone();
+          return;
+        }
+
+        try {
+          const parsed: unknown = JSON.parse(data);
+          const chunk = extractAssistantDelta(parsed);
+          if (chunk) onChunk(chunk);
+        } catch {
+          /* ignore partial json */
         }
       }
     }
