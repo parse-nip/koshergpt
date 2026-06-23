@@ -1,5 +1,7 @@
 import type { ChatError } from '@/lib/chatErrors';
 
+export type StudyMode = 'research' | 'chavrusa';
+
 export interface Source {
   number: number;
   title: string;
@@ -19,9 +21,12 @@ export interface Message {
 
 export interface ParsedResponse {
   summary: string;
+  keyPoints: string[];
   inDepth: string;
   sources: Source[];
   followUps: string[];
+  thinkAbout: string[];
+  yourTurn: string;
   disclaimer: boolean;
 }
 
@@ -29,4 +34,5 @@ export interface Conversation {
   id: string;
   title: string;
   messages: Message[];
+  mode: StudyMode;
 }

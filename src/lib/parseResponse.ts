@@ -16,52 +16,89 @@ function inferUrl(title: string): string {
     if (lower.includes(key)) return url;
   }
 
-  if (lower.includes('talmud') || lower.includes('mishnah') || lower.includes('torah') ||
-      lower.includes('rambam') || lower.includes('shulchan') || lower.includes('midrash') ||
-      lower.includes('tanakh') || lower.includes('rashi') || lower.includes('ramban')) {
+  if (
+    lower.includes('talmud') ||
+    lower.includes('mishnah') ||
+    lower.includes('torah') ||
+    lower.includes('rambam') ||
+    lower.includes('shulchan') ||
+    lower.includes('midrash') ||
+    lower.includes('tanakh') ||
+    lower.includes('rashi') ||
+    lower.includes('ramban')
+  ) {
     return 'https://www.sefaria.org';
   }
 
   return 'https://www.sefaria.org';
 }
 
+function extractBulletList(section: string): string[] {
+  const items: string[] = [];
+  for (const line of section.split('\n')) {
+    const cleaned = line.replace(/^[-*•]\s*/, '').trim();
+    if (cleaned.length > 0) items.push(cleaned);
+  }
+  return items;
+}
+
+function extractSection(content: string, heading: string, nextHeadings: string[]): string {
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const nextPattern = nextHeadings.map((h) => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const re = new RegExp(`\\*\\*${escaped}\\*\\*:?\\s*\\n?([\\s\\S]*?)(?=\\*\\*(?:${nextPattern})|$)`, 'i');
+  const match = content.match(re);
+  return match?.[1]?.trim() ?? '';
+}
+
 export function parseResponse(content: string): ParsedResponse {
   const sources: Source[] = [];
   const followUps: string[] = [];
+  const keyPoints: string[] = [];
+  const thinkAbout: string[] = [];
   let summary = '';
   let inDepth = '';
+  let yourTurn = '';
   let disclaimer = false;
 
   if (content.includes('consult your Local Orthodox Rabbi') || content.includes('consult your LOR')) {
     disclaimer = true;
   }
 
-  // Extract follow-up questions
-  const followUpMatch = content.match(/\*\*Follow-up Questions?\*\*:?\s*\n([\s\S]*?)$/);
-  if (followUpMatch) {
-    const followUpLines = followUpMatch[1].split('\n');
-    for (const line of followUpLines) {
-      const cleaned = line.replace(/^[-*]\s*/, '').trim();
-      if (cleaned.length > 0) {
-        followUps.push(cleaned);
-      }
-    }
+  const followUpSection = extractSection(content, 'Follow-up Questions?', [
+    'Sources?',
+    'Key Points',
+    'Your turn',
+    'For you to think about',
+  ]);
+  if (followUpSection) followUps.push(...extractBulletList(followUpSection));
+
+  const thinkSection = extractSection(content, 'For you to think about', [
+    'Follow-up Questions?',
+    'Sources?',
+    'Key Points',
+    'Your turn',
+  ]);
+  if (thinkSection) thinkAbout.push(...extractBulletList(thinkSection));
+
+  const yourTurnSection = extractSection(content, 'Your turn', [
+    'Follow-up Questions?',
+    'Sources?',
+    'Key Points',
+    'For you to think about',
+  ]);
+  if (yourTurnSection) {
+    yourTurn = yourTurnSection.replace(/^[-*•]\s*/, '').trim();
   }
 
-  // Extract sources section
-  const sourcesMatch = content.match(/\*\*Sources?\*\*:?\s*\n([\s\S]*?)(?=\*\*Follow-up|$)/);
+  const sourcesMatch = content.match(/\*\*Sources?\*\*:?\s*\n([\s\S]*?)(?=\*\*(?:Follow-up|Key Points|Your turn|For you to think about)|$)/i);
   if (sourcesMatch) {
     const sourceLines = sourcesMatch[1].split('\n');
     for (const line of sourceLines) {
       const sourceMatch = line.match(/^\[(\d+)\]\s*(.+)/);
       if (sourceMatch) {
         const fullText = sourceMatch[2];
-
-        // Extract URL from parenthetical at end: (https://...)
         const urlMatch = fullText.match(/\(?(https?:\/\/[^\s)]+)\)?/);
         const url = urlMatch ? urlMatch[1] : inferUrl(fullText);
-
-        // Remove the URL portion from the display text
         const cleanText = fullText.replace(/\s*\(?https?:\/\/[^\s)]+\)?\s*$/, '');
         const title = cleanText.split('—')[0]?.trim() || cleanText.trim();
         const description = cleanText.split('—')[1]?.trim() || '';
@@ -76,22 +113,29 @@ export function parseResponse(content: string): ParsedResponse {
     }
   }
 
-  // Extract summary
-  const summaryMatch = content.match(/\*\*Summary\*\*:?\s*\n?([\s\S]*?)(?=\*\*In Depth|$)/);
+  const keyPointsSection = extractSection(content, 'Key Points', [
+    'In Depth',
+    'Sources?',
+    'Follow-up Questions?',
+    'Your turn',
+    'For you to think about',
+  ]);
+  if (keyPointsSection) keyPoints.push(...extractBulletList(keyPointsSection));
+
+  const summaryMatch = content.match(/\*\*Summary\*\*:?\s*\n?([\s\S]*?)(?=\*\*(?:Key Points|In Depth)|$)/i);
   if (summaryMatch) {
     summary = summaryMatch[1].trim();
   }
 
-  // Extract in-depth
-  const inDepthMatch = content.match(/\*\*In Depth\*\*:?\s*\n?([\s\S]*?)(?=\*\*Sources?|$)/);
+  const inDepthMatch = content.match(/\*\*In Depth\*\*:?\s*\n?([\s\S]*?)(?=\*\*(?:Sources?|Follow-up|Key Points|Your turn|For you to think about)|$)/i);
   if (inDepthMatch) {
     inDepth = inDepthMatch[1].trim();
   }
 
   if (!summary && !inDepth) {
-    const beforeSources = content.split(/\*\*Sources?\*\*/)[0] || content;
-    inDepth = beforeSources.replace(/\*\*Follow-up Questions?\*\*[\s\S]*$/, '').trim();
+    const beforeStructured = content.split(/\*\*(?:Sources?|Follow-up Questions?|For you to think about|Your turn|Key Points)\*\*/i)[0] || content;
+    inDepth = beforeStructured.replace(/\*\*Follow-up Questions?\*\*[\s\S]*$/, '').trim();
   }
 
-  return { summary, inDepth, sources, followUps, disclaimer };
+  return { summary, keyPoints, inDepth, sources, followUps, thinkAbout, yourTurn, disclaimer };
 }

@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { parseResponse } from '../lib/parseResponse';
 import { CitationHighlight } from './CitationHighlight';
 import { IconCopy, IconCheck, IconAlertTriangle } from './icons';
-import type { Source } from '../types/chat';
+import type { Source, StudyMode } from '../types/chat';
 
 interface ResponseDisplayProps {
   content: string;
   isStreaming: boolean;
+  mode?: StudyMode;
   onFollowUp?: (question: string) => void;
   onReply?: () => void;
   onRetry?: () => void;
@@ -111,15 +112,75 @@ function renderFormattedBlock(text: string, sources: Source[]): React.ReactNode 
   return <>{elements}</>;
 }
 
+function SourcePills({ sources }: { sources: Source[] }) {
+  if (sources.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-t border-parchment-dark/60 pt-3">
+      <span className="font-sketch text-base text-ink/40">Sources</span>
+      {sources.map((source) => (
+        <a
+          key={source.number}
+          href={source.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-full border border-gold/20 bg-gold-muted/40 px-2.5 py-0.5 font-body text-xs text-ink/65 transition-all duration-150 hover:border-gold/35 hover:bg-gold-muted/70"
+        >
+          {source.title}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function ActionRow({
+  onReply,
+  onRetry,
+  replyLabel,
+}: {
+  onReply?: () => void;
+  onRetry?: () => void;
+  replyLabel?: string;
+}) {
+  if (!onReply && !onRetry) return null;
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-parchment-dark/60 pt-3 sm:flex-row sm:flex-wrap sm:items-center">
+      {onRetry ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="h-auto border-parchment-dark px-3 py-1.5 font-body text-xs text-ink/60 shadow-sketch hover:border-gold/30 hover:text-ink"
+          onClick={onRetry}
+        >
+          Retry
+        </Button>
+      ) : null}
+      {onReply ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="h-auto border-parchment-dark px-3 py-1.5 font-body text-xs text-ink/60 shadow-sketch hover:border-gold/30 hover:text-ink"
+          onClick={onReply}
+        >
+          {replyLabel ?? 'Reply in thread'}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 export function ResponseDisplay({
   content,
   isStreaming,
+  mode = 'research',
   onFollowUp,
   onReply,
   onRetry,
 }: ResponseDisplayProps) {
   const [copied, setCopied] = useState(false);
   const parsed = useMemo(() => parseResponse(content), [content]);
+  const isChavrusa = mode === 'chavrusa';
 
   function handleCopy() {
     void navigator.clipboard.writeText(content).then(
@@ -131,10 +192,13 @@ export function ResponseDisplay({
     );
   }
 
+  const promptItems = isChavrusa ? parsed.thinkAbout : parsed.followUps;
+  const promptHeading = isChavrusa ? 'For you to think about' : 'Follow-up questions';
+
   return (
     <div className="space-y-6">
       <div className="space-y-4">
-        {parsed.summary && (
+        {!isChavrusa && parsed.summary && (
           <div className="rounded-md border border-parchment-dark bg-gold-muted/25 p-4">
             <h3 className="font-sketch mb-2 text-xl text-gold">Summary</h3>
             <div className="response-content font-body text-[15px] leading-relaxed text-ink">
@@ -143,8 +207,31 @@ export function ResponseDisplay({
           </div>
         )}
 
+        {!isChavrusa && parsed.keyPoints.length > 0 && (
+          <div className="rounded-md border border-scholarly-blue/15 bg-scholarly-blue/5 p-4">
+            <h3 className="font-sketch mb-2.5 text-xl text-scholarly-blue">Key points</h3>
+            <ul className="list-none space-y-1.5 p-0">
+              {parsed.keyPoints.map((point, idx) => (
+                <li
+                  key={`${idx}-${point.slice(0, 24)}`}
+                  className="flex gap-2 font-body text-[15px] leading-relaxed text-ink"
+                >
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-scholarly-blue/60" aria-hidden />
+                  <span>{renderFormattedBlock(point, parsed.sources)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {parsed.inDepth && (
-          <div className="response-content font-body text-[15px] leading-relaxed text-ink">
+          <div
+            className={
+              isChavrusa
+                ? 'response-content rounded-md border border-parchment-dark/80 bg-white/60 p-4 font-body text-[15px] leading-relaxed text-ink'
+                : 'response-content font-body text-[15px] leading-relaxed text-ink'
+            }
+          >
             {renderFormattedBlock(parsed.inDepth, parsed.sources)}
           </div>
         )}
@@ -167,28 +254,32 @@ export function ResponseDisplay({
         </div>
       )}
 
-      {parsed.sources.length > 0 && !isStreaming && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-parchment-dark/60 pt-3">
-          <span className="font-sketch text-base text-ink/40">Sources</span>
-          {parsed.sources.map((source) => (
-            <a
-              key={source.number}
-              href={source.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-full border border-gold/20 bg-gold-muted/40 px-2.5 py-0.5 font-body text-xs text-ink/65 transition-all duration-150 hover:border-gold/35 hover:bg-gold-muted/70"
+      {!isStreaming && <SourcePills sources={parsed.sources} />}
+
+      {isChavrusa && parsed.yourTurn && !isStreaming && (
+        <div className="rounded-md border border-gold/30 bg-gold-muted/35 p-4">
+          <h3 className="font-sketch mb-2 text-xl text-gold">Your turn</h3>
+          <p className="font-body text-[15px] leading-relaxed text-ink">
+            {renderFormattedBlock(parsed.yourTurn, parsed.sources)}
+          </p>
+          {onFollowUp ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="sketch-card-hover mt-3 h-auto border-parchment-dark bg-white px-3 py-2 font-body text-[13px] text-ink/70 shadow-sketch hover:text-ink"
+              onClick={() => onFollowUp(parsed.yourTurn)}
             >
-              {source.title}
-            </a>
-          ))}
+              Respond to this
+            </Button>
+          ) : null}
         </div>
       )}
 
-      {parsed.followUps.length > 0 && !isStreaming && onFollowUp && (
+      {promptItems.length > 0 && !isStreaming && onFollowUp && (
         <div className="space-y-2 pt-2">
-          <h3 className="font-sketch text-lg text-ink/40">Follow-up questions</h3>
+          <h3 className="font-sketch text-lg text-ink/40">{promptHeading}</h3>
           <ul className="grid list-none gap-2 p-0 sm:grid-cols-2">
-            {parsed.followUps.map((q, idx) => (
+            {promptItems.map((q, idx) => (
               <li key={`${idx}-${q}`} className="min-w-0">
                 <Button
                   type="button"
@@ -205,28 +296,11 @@ export function ResponseDisplay({
       )}
 
       {!isStreaming && content && (onReply || onRetry) && (
-        <div className="flex flex-col gap-2 border-t border-parchment-dark/60 pt-3 sm:flex-row sm:flex-wrap sm:items-center">
-          {onRetry ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-auto border-parchment-dark px-3 py-1.5 font-body text-xs text-ink/60 shadow-sketch hover:border-gold/30 hover:text-ink"
-              onClick={onRetry}
-            >
-              Retry
-            </Button>
-          ) : null}
-          {onReply ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-auto border-parchment-dark px-3 py-1.5 font-body text-xs text-ink/60 shadow-sketch hover:border-gold/30 hover:text-ink"
-              onClick={onReply}
-            >
-              Reply in thread
-            </Button>
-          ) : null}
-        </div>
+        <ActionRow
+          onReply={onReply}
+          onRetry={onRetry}
+          replyLabel={isChavrusa ? 'Reply to chavrusa' : 'Reply in thread'}
+        />
       )}
 
       {!isStreaming && content ? (

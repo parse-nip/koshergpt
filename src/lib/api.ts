@@ -1,4 +1,4 @@
-import type { Message } from '../types/chat';
+import type { Message, StudyMode } from '../types/chat';
 import type { ChatError } from './chatErrors';
 import {
   chatErrorFromHttpFailure,
@@ -14,6 +14,7 @@ const API_BEARER = import.meta.env.VITE_CHAT_API_KEY?.trim() ?? '';
 
 export async function streamChat(
   messages: Message[],
+  mode: StudyMode,
   onChunk: (text: string) => void,
   onDone: () => void,
   onError: (error: ChatError) => void,
@@ -25,7 +26,7 @@ export async function streamChat(
         'Content-Type': 'application/json',
         ...(API_BEARER ? { Authorization: `Bearer ${API_BEARER}` } : {}),
       },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({ messages, mode }),
     });
 
     if (!response.ok) {

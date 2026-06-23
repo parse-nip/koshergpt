@@ -1,5 +1,6 @@
 import type { Conversation } from '@/types/chat';
 import { migrateLegacyErrorMessage } from '@/lib/messageUtils';
+import { normalizeStudyMode } from '@/lib/modes';
 
 const STORAGE_KEY = 'koshergpt-chats-v1';
 
@@ -17,6 +18,7 @@ function parseState(raw: unknown): ChatPersistState | null {
   return {
     conversations: (conversations as Conversation[]).map((conv) => ({
       ...conv,
+      mode: normalizeStudyMode(conv.mode),
       messages: conv.messages.map((m) => migrateLegacyErrorMessage(m)),
     })),
     activeConvId: typeof activeConvId === 'string' ? activeConvId : null,
