@@ -15,7 +15,7 @@ import {
   type LetterStyle,
   type TrainerMode,
 } from '@/lib/hebrew-letters/letters';
-import { recognizeHebrewDrawing } from '@/lib/hebrew-letters/recognize';
+import { recognizeDrawing, preloadHebrewMatcher } from '@/lib/hebrew-letters/recognize';
 import {
   loadHebrewLetterStats,
   recordAttempt,
@@ -38,7 +38,6 @@ interface RoundResult {
   confidence: number;
   predictedLetterId: string;
   feedback: string;
-  source: 'vision' | 'local';
   elapsedMs: number;
 }
 
@@ -81,6 +80,7 @@ export function HebrewLetterTrainer() {
   }, []);
 
   useEffect(() => {
+    preloadHebrewMatcher();
     startRound('mixed');
   }, [startRound]);
 
@@ -109,13 +109,15 @@ export function HebrewLetterTrainer() {
     if (!round || phase !== 'drawing' || isSubmitting) return;
 
     const canvas = canvasRef.current?.getCanvas();
-    if (!canvas || !canvasRef.current?.hasInk()) return;
+    const strokes = canvasRef.current?.getStrokes() ?? [];
+    if (!canvas || strokes.length === 0) return;
 
     setIsSubmitting(true);
     setModelError(null);
     try {
-      const recognition = await recognizeHebrewDrawing({
+      const recognition = await recognizeDrawing({
         canvas,
+        strokes,
         expectedLetterId: round.letter.id,
         shownStyle: round.shownStyle,
         targetStyle: round.targetStyle,
@@ -142,7 +144,6 @@ export function HebrewLetterTrainer() {
         confidence: recognition.confidence,
         predictedLetterId: recognition.predictedLetterId,
         feedback: recognition.feedback,
-        source: recognition.source,
         elapsedMs: elapsed,
       });
       setPhase('result');
@@ -175,7 +176,7 @@ export function HebrewLetterTrainer() {
         <p className="font-sketch text-xl text-gold">Learn Hebrew Letters</p>
         <h2 className="mt-1 font-heading text-2xl text-ink">See one style, draw the other</h2>
         <p className="mt-2 font-body text-sm text-ink/50">
-          You&apos;ll see a letter in block or script — draw the same letter in the opposite style. AI vision checks your work.
+          See a letter in one style, draw it in the other. Stroke shape matching checks your work — no AI, all on-device.
         </p>
       </div>
 
@@ -289,13 +290,8 @@ export function HebrewLetterTrainer() {
 
               <p className="mt-3 font-body text-sm text-ink/60">
                 {result?.feedback ||
-                  `Detected ${predictedLetter?.name ?? 'unknown'} with ${confidenceLabel(result?.confidence ?? 0)} confidence.`}
+                  `Best match: ${predictedLetter?.name ?? 'unknown'} (${confidenceLabel(result?.confidence ?? 0)} fit).`}
               </p>
-              {result?.source === 'local' ? (
-                <p className="mt-1 font-body text-[11px] text-ink/40">
-                  Used offline fallback — run with the API for best accuracy.
-                </p>
-              ) : null}
               <Button type="button" className="mt-4" onClick={() => startRound(mode)}>
                 Next letter
               </Button>

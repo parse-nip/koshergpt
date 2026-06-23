@@ -78,11 +78,6 @@ export function canvasToGrayscaleArray(canvas: HTMLCanvasElement, size = IMAGE_S
   return pixels;
 }
 
-export function canvasToPngDataUrl(canvas: HTMLCanvasElement, size = 256): string {
-  const normalized = normalizeDrawingToCanvas(canvas, size);
-  return normalized.toDataURL('image/png');
-}
-
 export function binarizePixels(pixels: Float32Array, threshold = 0.18): Uint8Array {
   const binary = new Uint8Array(pixels.length);
   for (let i = 0; i < pixels.length; i++) {

@@ -1,18 +1,22 @@
+import type { Point } from './geometry';
+import { recognizeHebrewDrawing, type RecognitionResult } from './shapeMatcher';
 import type { LetterStyle } from './letters';
-import { recognizeDrawingLocally } from './localRecognizer';
-import { recognizeDrawingViaVision, type RecognitionResult } from './recognizeApi';
 
 export type { RecognitionResult };
 
-export async function recognizeHebrewDrawing(params: {
+export async function recognizeDrawing(params: {
   canvas: HTMLCanvasElement;
+  strokes: Point[][];
   expectedLetterId: string;
   shownStyle: LetterStyle;
   targetStyle: LetterStyle;
 }): Promise<RecognitionResult> {
-  try {
-    return await recognizeDrawingViaVision(params);
-  } catch {
-    return recognizeDrawingLocally(params.canvas, params.expectedLetterId, params.targetStyle);
-  }
+  return recognizeHebrewDrawing({
+    canvas: params.canvas,
+    strokes: params.strokes,
+    expectedLetterId: params.expectedLetterId,
+    targetStyle: params.targetStyle,
+  });
 }
+
+export { preloadHebrewMatcher } from './shapeMatcher';

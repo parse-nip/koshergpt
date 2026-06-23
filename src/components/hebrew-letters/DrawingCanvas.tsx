@@ -1,10 +1,12 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 
+import type { Point } from '@/lib/hebrew-letters/geometry';
 import { cn } from '@/lib/utils';
 
 export interface DrawingCanvasHandle {
   clear: () => void;
   getCanvas: () => HTMLCanvasElement | null;
+  getStrokes: () => Point[][];
   hasInk: () => boolean;
 }
 
@@ -20,11 +22,13 @@ function isCoarsePointer(): boolean {
 export const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>(
   function DrawingCanvas({ className, disabled = false }, ref) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const strokesRef = useRef<Point[][]>([]);
+    const currentStrokeRef = useRef<Point[]>([]);
     const isDrawingRef = useRef(false);
-    const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+    const lastPointRef = useRef<Point | null>(null);
     const logicalSizeRef = useRef({ width: 0, height: 0 });
 
-    const getPoint = useCallback((event: PointerEvent, canvas: HTMLCanvasElement) => {
+    const getPoint = useCallback((event: PointerEvent, canvas: HTMLCanvasElement): Point => {
       const rect = canvas.getBoundingClientRect();
       return {
         x: event.clientX - rect.left,
@@ -51,24 +55,17 @@ export const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext('2d');
       if (!canvas || !ctx) return;
+      strokesRef.current = [];
+      currentStrokeRef.current = [];
       paintBackground(canvas, ctx);
     }, [paintBackground]);
 
-    const hasInk = useCallback(() => {
-      const canvas = canvasRef.current;
-      if (!canvas) return false;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return false;
-      const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      for (let i = 0; i < data.length; i += 4) {
-        if (data[i] < 240) return true;
-      }
-      return false;
-    }, []);
+    const hasInk = useCallback(() => strokesRef.current.length > 0, []);
 
     useImperativeHandle(ref, () => ({
       clear,
       getCanvas: () => canvasRef.current,
+      getStrokes: () => strokesRef.current.map((stroke) => stroke.map((point) => ({ ...point }))),
       hasInk,
     }));
 
@@ -84,7 +81,7 @@ export const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>
         if (rect.width < 1 || rect.height < 1) return;
 
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        const hadInk = hasInk();
+        const hadInk = strokesRef.current.length > 0;
         let snapshot: ImageData | null = null;
 
         if (hadInk && logicalSizeRef.current.width > 0) {
@@ -119,6 +116,7 @@ export const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>
         canvas.setPointerCapture(event.pointerId);
         const point = getPoint(event, canvas);
         lastPointRef.current = point;
+        currentStrokeRef.current = [point];
 
         ctx.beginPath();
         ctx.moveTo(point.x, point.y);
@@ -133,10 +131,15 @@ export const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>
         const last = lastPointRef.current;
         if (!last) return;
 
+        const dx = point.x - last.x;
+        const dy = point.y - last.y;
+        if (dx * dx + dy * dy < 1.5) return;
+
         ctx.beginPath();
         ctx.moveTo(last.x, last.y);
         ctx.lineTo(point.x, point.y);
         ctx.stroke();
+        currentStrokeRef.current.push(point);
         lastPointRef.current = point;
       };
 
@@ -144,6 +147,12 @@ export const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>
         if (!isDrawingRef.current) return;
         isDrawingRef.current = false;
         lastPointRef.current = null;
+
+        if (currentStrokeRef.current.length > 0) {
+          strokesRef.current.push(currentStrokeRef.current);
+          currentStrokeRef.current = [];
+        }
+
         if (canvas.hasPointerCapture(event.pointerId)) {
           canvas.releasePointerCapture(event.pointerId);
         }
@@ -161,7 +170,7 @@ export const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>
         canvas.removeEventListener('pointerup', endStroke);
         canvas.removeEventListener('pointercancel', endStroke);
       };
-    }, [applyBrush, disabled, getPoint, hasInk, paintBackground]);
+    }, [applyBrush, disabled, getPoint, paintBackground]);
 
     return (
       <div
