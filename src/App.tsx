@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -9,7 +9,13 @@ import { StarterQuestions } from './components/StarterQuestions';
 import { TypingIndicator } from './components/TypingIndicator';
 import { ResponseDisplay } from './components/ResponseDisplay';
 import { ErrorDisplay } from './components/ErrorDisplay';
-import { Sidebar } from './components/Sidebar';
+import { Sidebar, type AppView } from './components/Sidebar';
+
+const HebrewLetterTrainer = lazy(() =>
+  import('./components/hebrew-letters/HebrewLetterTrainer').then((m) => ({
+    default: m.HebrewLetterTrainer,
+  })),
+);
 import { IconMenu, IconCopy } from './components/icons';
 
 import { streamChat } from './lib/api';
@@ -80,6 +86,7 @@ export default function App() {
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const [sidebarWidthPx, setSidebarWidthPx] = useState(() => loadSidebarWidth());
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const [appView, setAppView] = useState<AppView>('chat');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const resizeDragRef = useRef({
@@ -203,6 +210,14 @@ export default function App() {
     setActiveConvId(null);
     setStreamingContent('');
     setSidebarOpen(false);
+    setAppView('chat');
+  }
+
+  function handleOpenHebrewLetters() {
+    setReplyTarget(null);
+    setStreamingContent('');
+    setSidebarOpen(false);
+    setAppView('hebrew-letters');
   }
 
   function handleSelectConversation(id: string) {
@@ -210,6 +225,7 @@ export default function App() {
     setActiveConvId(id);
     setStreamingContent('');
     setSidebarOpen(false);
+    setAppView('chat');
   }
 
   async function handleSendMessage(rawText: string) {
@@ -308,7 +324,8 @@ export default function App() {
     );
   }
 
-  const showHero = activeConvId === null;
+  const showHero = activeConvId === null && appView === 'chat';
+  const showHebrewTrainer = appView === 'hebrew-letters';
 
   const replyPreview =
     !showHero && replyTarget && activeConversation
@@ -323,8 +340,10 @@ export default function App() {
         <Sidebar
           conversations={conversations}
           activeId={activeConvId}
+          appView={appView}
           onSelect={handleSelectConversation}
           onNew={handleNewConversation}
+          onOpenHebrewLetters={handleOpenHebrewLetters}
         />
       </div>
 
@@ -358,8 +377,10 @@ export default function App() {
           <Sidebar
             conversations={conversations}
             activeId={activeConvId}
+            appView={appView}
             onSelect={handleSelectConversation}
             onNew={handleNewConversation}
+            onOpenHebrewLetters={handleOpenHebrewLetters}
           />
         </SheetContent>
       </Sheet>
@@ -377,7 +398,19 @@ export default function App() {
             <IconMenu className="h-5 w-5 text-ink/50" />
           </Button>
 
-          <div className="hidden lg:block" />
+          {showHebrewTrainer ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="hidden rounded-md font-body text-xs text-ink/50 lg:inline-flex"
+              onClick={() => setAppView('chat')}
+            >
+              Back to chat
+            </Button>
+          ) : (
+            <div className="hidden lg:block" />
+          )}
           <Logo size="small" />
 
           {activeConversation ? (
@@ -399,10 +432,28 @@ export default function App() {
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8">
           <div className="mx-auto max-w-chat">
-            {showHero ? (
+            {showHebrewTrainer ? (
+              <Suspense
+                fallback={
+                  <div className="sketch-card bg-white p-8 text-center font-body text-sm text-ink/60">
+                    Loading Hebrew letter trainer…
+                  </div>
+                }
+              >
+                <HebrewLetterTrainer />
+              </Suspense>
+            ) : showHero ? (
               <div className="flex min-h-[55vh] flex-col items-center justify-center">
                 <Logo size="large" />
                 <StarterQuestions onSelect={(q) => void handleSendMessage(q)} />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="sketch-card-hover mt-6 h-auto border-parchment-dark bg-white px-5 py-3 font-body text-sm font-normal text-ink/75 shadow-sketch hover:text-ink"
+                  onClick={handleOpenHebrewLetters}
+                >
+                  Practice Hebrew letters (block & script)
+                </Button>
               </div>
             ) : (
               <div className="space-y-8">
@@ -473,16 +524,18 @@ export default function App() {
           </div>
         </div>
 
-        <div className="paper-surface shrink-0 border-t border-parchment-dark px-4 py-3 sm:px-6 sm:py-4">
-          <div className="mx-auto max-w-chat">
-            <ChatInput
-              onSubmit={(draft) => void handleSendMessage(draft)}
-              disabled={isStreaming}
-              replyPreview={replyPreview}
-              onClearReply={() => setReplyTarget(null)}
-            />
+        {!showHebrewTrainer ? (
+          <div className="paper-surface shrink-0 border-t border-parchment-dark px-4 py-3 sm:px-6 sm:py-4">
+            <div className="mx-auto max-w-chat">
+              <ChatInput
+                onSubmit={(draft) => void handleSendMessage(draft)}
+                disabled={isStreaming}
+                replyPreview={replyPreview}
+                onClearReply={() => setReplyTarget(null)}
+              />
+            </div>
           </div>
-        </div>
+        ) : null}
 
         <div className="shrink-0 border-t border-parchment-dark bg-parchment px-4 py-2.5 sm:px-6">
           <p className="mx-auto max-w-chat text-center font-body text-[11px] leading-relaxed text-ink/35">
