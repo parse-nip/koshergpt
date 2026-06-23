@@ -31,6 +31,7 @@ import {
 import {
   sanitizeAssistantContent,
   trimMessagesForApi,
+  augmentMessagesForApi,
   composeUserMessage,
   type ReplyTarget,
 } from '@/lib/messageUtils';
@@ -295,7 +296,12 @@ export default function App() {
 
     setReplyTarget(null);
 
-    await executeAssistant(convId, trimMessagesForApi(updatedMessages), updatedMessages, activeMode);
+    await executeAssistant(
+      convId,
+      augmentMessagesForApi(trimMessagesForApi(updatedMessages), activeMode),
+      updatedMessages,
+      activeMode,
+    );
   }
 
   async function retryAssistantAnswer(assistantIndex: number) {
@@ -312,11 +318,15 @@ export default function App() {
     if (target?.role !== 'assistant') return;
 
     const clipped = trimmed.slice(0, assistantIndex);
-    const apiMessages = trimMessagesForApi(clipped);
 
     setReplyTarget(null);
 
-    await executeAssistant(convId, apiMessages, clipped, conv.mode ?? DEFAULT_STUDY_MODE);
+    await executeAssistant(
+      convId,
+      augmentMessagesForApi(trimMessagesForApi(clipped), conv.mode ?? DEFAULT_STUDY_MODE),
+      clipped,
+      conv.mode ?? DEFAULT_STUDY_MODE,
+    );
   }
 
   function handleCopyConversation() {
