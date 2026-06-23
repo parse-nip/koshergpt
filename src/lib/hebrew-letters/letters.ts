@@ -1,5 +1,7 @@
 export type LetterStyle = 'block' | 'script';
 
+export type TrainerMode = 'mixed' | 'show-block' | 'show-script';
+
 export interface HebrewLetter {
   id: string;
   char: string;
@@ -37,16 +39,40 @@ export const LETTER_STYLE_FONTS: Record<LetterStyle, string> = {
   script: '"Gveret Levin", cursive',
 };
 
-/** Grid size for template matching — balanced for accuracy and speed. */
+export const LETTER_STYLE_LABELS: Record<LetterStyle, string> = {
+  block: 'block print',
+  script: 'script (cursive)',
+};
+
 export const IMAGE_SIZE = 48;
+
+const LETTER_NAME_TO_ID = new Map(
+  HEBREW_LETTERS.flatMap((letter) => [
+    [letter.name.toLowerCase(), letter.id],
+    [letter.id, letter.id],
+    [letter.char, letter.id],
+  ]),
+);
 
 export function pickRandomLetter(): HebrewLetter {
   return HEBREW_LETTERS[Math.floor(Math.random() * HEBREW_LETTERS.length)];
 }
 
-export function pickRandomStyle(mode: 'mixed' | LetterStyle): LetterStyle {
-  if (mode === 'mixed') {
-    return Math.random() < 0.5 ? 'block' : 'script';
-  }
-  return mode;
+export function pickShownStyle(mode: TrainerMode): LetterStyle {
+  if (mode === 'show-block') return 'block';
+  if (mode === 'show-script') return 'script';
+  return Math.random() < 0.5 ? 'block' : 'script';
+}
+
+export function oppositeStyle(style: LetterStyle): LetterStyle {
+  return style === 'block' ? 'script' : 'block';
+}
+
+export function letterIdFromName(value: string): string | null {
+  const key = value.trim().toLowerCase();
+  return LETTER_NAME_TO_ID.get(key) ?? null;
+}
+
+export function getLetterById(id: string): HebrewLetter | undefined {
+  return HEBREW_LETTERS.find((letter) => letter.id === id);
 }

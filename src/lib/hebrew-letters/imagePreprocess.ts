@@ -32,10 +32,7 @@ export function normalizeDrawingToCanvas(source: HTMLCanvasElement, size = IMAGE
     for (let x = 0; x < width; x++) {
       const offset = (y * width + x) * 4;
       const alpha = data[offset + 3];
-      const r = data[offset];
-      const g = data[offset + 1];
-      const b = data[offset + 2];
-      const luminance = (r + g + b) / 3;
+      const luminance = (data[offset] + data[offset + 1] + data[offset + 2]) / 3;
       if (alpha > 0 && luminance < 250) {
         minX = Math.min(minX, x);
         minY = Math.min(minY, y);
@@ -75,11 +72,15 @@ export function canvasToGrayscaleArray(canvas: HTMLCanvasElement, size = IMAGE_S
   const pixels = new Float32Array(size * size);
 
   for (let i = 0; i < size * size; i++) {
-    const r = data[i * 4];
-    pixels[i] = 1 - r / 255;
+    pixels[i] = 1 - data[i * 4] / 255;
   }
 
   return pixels;
+}
+
+export function canvasToPngDataUrl(canvas: HTMLCanvasElement, size = 256): string {
+  const normalized = normalizeDrawingToCanvas(canvas, size);
+  return normalized.toDataURL('image/png');
 }
 
 export function binarizePixels(pixels: Float32Array, threshold = 0.18): Uint8Array {
@@ -90,16 +91,13 @@ export function binarizePixels(pixels: Float32Array, threshold = 0.18): Uint8Arr
   return binary;
 }
 
-/** Thicken sparse pen strokes so they overlap stroke-style reference glyphs. */
 export function dilateBinary(mask: Uint8Array, size: number, radius = 1): Uint8Array {
   if (radius <= 0) return mask;
 
   const out = new Uint8Array(mask.length);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const idx = y * size + x;
-      if (mask[idx] === 0) continue;
-
+      if (mask[y * size + x] === 0) continue;
       for (let dy = -radius; dy <= radius; dy++) {
         for (let dx = -radius; dx <= radius; dx++) {
           const nx = x + dx;
@@ -126,15 +124,4 @@ export function diceCoefficient(a: Uint8Array, b: Uint8Array): number {
 
   if (sumA === 0 && sumB === 0) return 1;
   return (2 * intersection) / (sumA + sumB);
-}
-
-export function normalizeVector(vector: Float32Array): void {
-  let sumSq = 0;
-  for (let i = 0; i < vector.length; i++) {
-    sumSq += vector[i] * vector[i];
-  }
-  const norm = Math.sqrt(sumSq) || 1;
-  for (let i = 0; i < vector.length; i++) {
-    vector[i] /= norm;
-  }
 }

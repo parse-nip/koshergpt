@@ -1,10 +1,11 @@
 import type { LetterStyle } from './letters';
 
-const STORAGE_KEY = 'koshergpt-hebrew-letter-stats-v1';
+const STORAGE_KEY = 'koshergpt-hebrew-letter-stats-v2';
 
 export interface AttemptRecord {
   letterId: string;
-  style: LetterStyle;
+  shownStyle: LetterStyle;
+  targetStyle: LetterStyle;
   correct: boolean;
   elapsedMs: number;
   confidence: number;
@@ -71,10 +72,10 @@ export function recordAttempt(
     currentStreak,
     bestStreak,
     totalTimeMs: stats.totalTimeMs + attempt.elapsedMs,
-    blockAttempts: stats.blockAttempts + (attempt.style === 'block' ? 1 : 0),
-    blockCorrect: stats.blockCorrect + (attempt.style === 'block' && correct ? 1 : 0),
-    scriptAttempts: stats.scriptAttempts + (attempt.style === 'script' ? 1 : 0),
-    scriptCorrect: stats.scriptCorrect + (attempt.style === 'script' && correct ? 1 : 0),
+    blockAttempts: stats.blockAttempts + (attempt.targetStyle === 'block' ? 1 : 0),
+    blockCorrect: stats.blockCorrect + (attempt.targetStyle === 'block' && correct ? 1 : 0),
+    scriptAttempts: stats.scriptAttempts + (attempt.targetStyle === 'script' ? 1 : 0),
+    scriptCorrect: stats.scriptCorrect + (attempt.targetStyle === 'script' && correct ? 1 : 0),
     recentAttempts: [
       { ...attempt, timestamp: Date.now() },
       ...stats.recentAttempts,

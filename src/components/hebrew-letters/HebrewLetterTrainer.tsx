@@ -3,21 +3,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DrawingCanvas, type DrawingCanvasHandle } from './DrawingCanvas';
 import { HebrewLetterStatsPanel } from './HebrewLetterStatsPanel';
-import { RecognizerLoadingPanel } from './RecognizerLoadingPanel';
 
 import {
   HEBREW_LETTERS,
   LETTER_STYLE_FONTS,
+  LETTER_STYLE_LABELS,
+  oppositeStyle,
   pickRandomLetter,
-  pickRandomStyle,
+  pickShownStyle,
   type HebrewLetter,
   type LetterStyle,
+  type TrainerMode,
 } from '@/lib/hebrew-letters/letters';
-import {
-  initHebrewLetterRecognizer,
-  recognizeHebrewLetter,
-  type RecognizerLoadProgress,
-} from '@/lib/hebrew-letters/recognizer';
+import { recognizeHebrewDrawing } from '@/lib/hebrew-letters/recognize';
 import {
   loadHebrewLetterStats,
   recordAttempt,
@@ -26,12 +24,12 @@ import {
 } from '@/lib/hebrew-letters/stats';
 import { cn } from '@/lib/utils';
 
-type TrainerMode = 'mixed' | LetterStyle;
 type RoundPhase = 'drawing' | 'result';
 
 interface RoundState {
   letter: HebrewLetter;
-  style: LetterStyle;
+  shownStyle: LetterStyle;
+  targetStyle: LetterStyle;
   startedAt: number;
 }
 
@@ -39,14 +37,10 @@ interface RoundResult {
   correct: boolean;
   confidence: number;
   predictedLetterId: string;
+  feedback: string;
+  source: 'vision' | 'local';
   elapsedMs: number;
 }
-
-const INITIAL_LOAD_PROGRESS: RecognizerLoadProgress = {
-  stage: 'fonts',
-  percent: 0,
-  message: 'Starting up…',
-};
 
 function formatElapsed(ms: number): string {
   const seconds = ms / 1000;
@@ -60,7 +54,6 @@ function confidenceLabel(confidence: number): string {
 export function HebrewLetterTrainer() {
   const canvasRef = useRef<DrawingCanvasHandle>(null);
   const timerRef = useRef<number | null>(null);
-  const loadStartedAtRef = useRef(Date.now());
 
   const [mode, setMode] = useState<TrainerMode>('mixed');
   const [stats, setStats] = useState<HebrewLetterStats>(() => loadHebrewLetterStats());
@@ -68,9 +61,6 @@ export function HebrewLetterTrainer() {
   const [phase, setPhase] = useState<RoundPhase>('drawing');
   const [result, setResult] = useState<RoundResult | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
-  const [isModelLoading, setIsModelLoading] = useState(true);
-  const [loadProgress, setLoadProgress] = useState<RecognizerLoadProgress>(INITIAL_LOAD_PROGRESS);
-  const [loadElapsedMs, setLoadElapsedMs] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
 
@@ -80,50 +70,19 @@ export function HebrewLetterTrainer() {
 
   const startRound = useCallback((trainerMode: TrainerMode) => {
     const letter = pickRandomLetter();
-    const style = pickRandomStyle(trainerMode);
-    setRound({ letter, style, startedAt: Date.now() });
+    const shownStyle = pickShownStyle(trainerMode);
+    const targetStyle = oppositeStyle(shownStyle);
+    setRound({ letter, shownStyle, targetStyle, startedAt: Date.now() });
     setPhase('drawing');
     setResult(null);
     setElapsedMs(0);
+    setModelError(null);
     canvasRef.current?.clear();
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    loadStartedAtRef.current = Date.now();
-
-    initHebrewLetterRecognizer((progress) => {
-      if (!cancelled) {
-        setLoadProgress(progress);
-      }
-    })
-      .then(() => {
-        if (!cancelled) {
-          setIsModelLoading(false);
-          startRound('mixed');
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setModelError('Could not load the handwriting recognition model. Please refresh and try again.');
-          setIsModelLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    startRound('mixed');
   }, [startRound]);
-
-  useEffect(() => {
-    if (!isModelLoading) return;
-
-    const tick = window.setInterval(() => {
-      setLoadElapsedMs(Date.now() - loadStartedAtRef.current);
-    }, 120);
-
-    return () => window.clearInterval(tick);
-  }, [isModelLoading]);
 
   useEffect(() => {
     if (phase !== 'drawing' || !round) {
@@ -153,29 +112,37 @@ export function HebrewLetterTrainer() {
     if (!canvas || !canvasRef.current?.hasInk()) return;
 
     setIsSubmitting(true);
+    setModelError(null);
     try {
-      const recognition = await recognizeHebrewLetter(canvas, round.style);
+      const recognition = await recognizeHebrewDrawing({
+        canvas,
+        expectedLetterId: round.letter.id,
+        shownStyle: round.shownStyle,
+        targetStyle: round.targetStyle,
+      });
       const elapsed = Date.now() - round.startedAt;
-      const correct = recognition.letterId === round.letter.id;
 
       const attempt = {
         letterId: round.letter.id,
-        style: round.style,
-        correct,
+        shownStyle: round.shownStyle,
+        targetStyle: round.targetStyle,
+        correct: recognition.correct,
         elapsedMs: elapsed,
         confidence: recognition.confidence,
-        predictedLetterId: recognition.letterId,
+        predictedLetterId: recognition.predictedLetterId,
       };
 
       setStats((prev) => recordAttempt(prev, attempt));
-      setSessionCorrect((c) => c + (correct ? 1 : 0));
+      setSessionCorrect((c) => c + (recognition.correct ? 1 : 0));
       setSessionAttempts((a) => a + 1);
       setSessionElapsedMs((t) => t + elapsed);
 
       setResult({
-        correct,
+        correct: recognition.correct,
         confidence: recognition.confidence,
-        predictedLetterId: recognition.letterId,
+        predictedLetterId: recognition.predictedLetterId,
+        feedback: recognition.feedback,
+        source: recognition.source,
         elapsedMs: elapsed,
       });
       setPhase('result');
@@ -206,32 +173,32 @@ export function HebrewLetterTrainer() {
     <div className="mx-auto max-w-chat space-y-6 overscroll-contain">
       <div className="text-center">
         <p className="font-sketch text-xl text-gold">Learn Hebrew Letters</p>
-        <h2 className="mt-1 font-heading text-2xl text-ink">Draw the letter you see</h2>
+        <h2 className="mt-1 font-heading text-2xl text-ink">See one style, draw the other</h2>
         <p className="mt-2 font-body text-sm text-ink/50">
-          Practice block print and script (cursive). Shape matching compares your drawing to reference letter templates.
+          You&apos;ll see a letter in block or script — draw the same letter in the opposite style. AI vision checks your work.
         </p>
       </div>
 
-      {!isModelLoading ? (
-        <div className="flex flex-wrap justify-center gap-2">
-          {(['mixed', 'block', 'script'] as const).map((option) => (
-            <Button
-              key={option}
-              type="button"
-              variant={mode === option ? 'default' : 'outline'}
-              size="sm"
-              disabled={isSubmitting}
-              onClick={() => handleModeChange(option)}
-            >
-              {option === 'mixed' ? 'Mixed' : option === 'block' ? 'Block only' : 'Script only'}
-            </Button>
-          ))}
-        </div>
-      ) : null}
-
-      {isModelLoading ? (
-        <RecognizerLoadingPanel progress={loadProgress} elapsedMs={loadElapsedMs} />
-      ) : null}
+      <div className="flex flex-wrap justify-center gap-2">
+        {(
+          [
+            ['mixed', 'Mixed'],
+            ['show-block', 'Show block → draw script'],
+            ['show-script', 'Show script → draw block'],
+          ] as const
+        ).map(([option, label]) => (
+          <Button
+            key={option}
+            type="button"
+            variant={mode === option ? 'default' : 'outline'}
+            size="sm"
+            disabled={isSubmitting}
+            onClick={() => handleModeChange(option)}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
 
       {modelError ? (
         <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 font-body text-sm text-destructive">
@@ -239,12 +206,15 @@ export function HebrewLetterTrainer() {
         </div>
       ) : null}
 
-      {round && !isModelLoading ? (
+      {round ? (
         <>
           <div className="sketch-card bg-white p-6 text-center">
-            <div className="flex items-center justify-center gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-2">
               <span className="rounded-full bg-gold-muted px-3 py-1 font-body text-xs uppercase tracking-wide text-gold">
-                {round.style === 'block' ? 'Block' : 'Script'}
+                Shown: {LETTER_STYLE_LABELS[round.shownStyle]}
+              </span>
+              <span className="rounded-full border border-parchment-dark px-3 py-1 font-body text-xs uppercase tracking-wide text-ink/55">
+                Draw: {LETTER_STYLE_LABELS[round.targetStyle]}
               </span>
               <span className="font-body text-sm text-ink/45">
                 {phase === 'drawing' ? formatElapsed(elapsedMs) : formatElapsed(result?.elapsedMs ?? 0)}
@@ -253,7 +223,7 @@ export function HebrewLetterTrainer() {
 
             <p
               className="mt-4 text-7xl leading-none text-ink sm:text-8xl"
-              style={{ fontFamily: LETTER_STYLE_FONTS[round.style] }}
+              style={{ fontFamily: LETTER_STYLE_FONTS[round.shownStyle] }}
               dir="rtl"
               lang="he"
             >
@@ -261,7 +231,12 @@ export function HebrewLetterTrainer() {
             </p>
 
             <p className="mt-3 font-body text-sm text-ink/55">
-              Draw <span className="font-medium text-ink">{round.letter.name}</span> ({round.letter.transliteration})
+              This is <span className="font-medium text-ink">{round.letter.name}</span> in{' '}
+              {LETTER_STYLE_LABELS[round.shownStyle]}.
+            </p>
+            <p className="mt-1 font-body text-sm text-ink/70">
+              Now draw <span className="font-medium text-ink">{round.letter.name}</span> in{' '}
+              <span className="font-medium text-gold">{LETTER_STYLE_LABELS[round.targetStyle]}</span> below.
             </p>
           </div>
 
@@ -297,11 +272,30 @@ export function HebrewLetterTrainer() {
               <p className="font-heading text-xl text-ink">
                 {result?.correct ? 'Correct!' : 'Not quite — keep practicing'}
               </p>
-              <p className="mt-2 font-body text-sm text-ink/60">
-                Matcher guessed{' '}
-                <span className="font-medium text-ink">{predictedLetter?.name ?? 'unknown'}</span> with{' '}
-                {confidenceLabel(result?.confidence ?? 0)} confidence in {formatElapsed(result?.elapsedMs ?? 0)}.
+
+              {!result?.correct ? (
+                <div className="mt-3">
+                  <p className="font-body text-xs uppercase tracking-wide text-ink/40">Answer in {LETTER_STYLE_LABELS[round.targetStyle]}</p>
+                  <p
+                    className="mt-1 text-5xl leading-none text-ink"
+                    style={{ fontFamily: LETTER_STYLE_FONTS[round.targetStyle] }}
+                    dir="rtl"
+                    lang="he"
+                  >
+                    {round.letter.char}
+                  </p>
+                </div>
+              ) : null}
+
+              <p className="mt-3 font-body text-sm text-ink/60">
+                {result?.feedback ||
+                  `Detected ${predictedLetter?.name ?? 'unknown'} with ${confidenceLabel(result?.confidence ?? 0)} confidence.`}
               </p>
+              {result?.source === 'local' ? (
+                <p className="mt-1 font-body text-[11px] text-ink/40">
+                  Used offline fallback — run with the API for best accuracy.
+                </p>
+              ) : null}
               <Button type="button" className="mt-4" onClick={() => startRound(mode)}>
                 Next letter
               </Button>
@@ -310,15 +304,13 @@ export function HebrewLetterTrainer() {
         </>
       ) : null}
 
-      {!isModelLoading ? (
-        <HebrewLetterStatsPanel
-          stats={stats}
-          sessionCorrect={sessionCorrect}
-          sessionAttempts={sessionAttempts}
-          sessionElapsedMs={sessionElapsedMs}
-          onReset={handleResetStats}
-        />
-      ) : null}
+      <HebrewLetterStatsPanel
+        stats={stats}
+        sessionCorrect={sessionCorrect}
+        sessionAttempts={sessionAttempts}
+        sessionElapsedMs={sessionElapsedMs}
+        onReset={handleResetStats}
+      />
     </div>
   );
 }

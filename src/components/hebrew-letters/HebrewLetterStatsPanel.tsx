@@ -57,8 +57,8 @@ export function HebrewLetterStatsPanel({
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <StatCard label="Block letters" value={`${blockAccuracy}%`} hint={`${stats.blockCorrect}/${stats.blockAttempts}`} />
-        <StatCard label="Script letters" value={`${scriptAccuracy}%`} hint={`${stats.scriptCorrect}/${stats.scriptAttempts}`} />
+        <StatCard label="Drawn in block" value={`${blockAccuracy}%`} hint={`${stats.blockCorrect}/${stats.blockAttempts}`} />
+        <StatCard label="Drawn in script" value={`${scriptAccuracy}%`} hint={`${stats.scriptCorrect}/${stats.scriptAttempts}`} />
       </div>
 
       {stats.recentAttempts.length > 0 ? (
@@ -74,7 +74,7 @@ export function HebrewLetterStatsPanel({
                   className="flex items-center justify-between gap-2 font-body text-xs text-ink/65"
                 >
                   <span>
-                    {letter?.char} ({letter?.name}) · {attempt.style}
+                    {letter?.char} ({letter?.name}) · saw {attempt.shownStyle} → drew {attempt.targetStyle}
                   </span>
                   <span className={attempt.correct ? 'text-gold' : 'text-destructive'}>
                     {attempt.correct ? '✓' : `✗ ${predicted?.name ?? '?'}`} · {(attempt.elapsedMs / 1000).toFixed(1)}s
