@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DrawingCanvas, type DrawingCanvasHandle } from './DrawingCanvas';
 import { HebrewLetterStatsPanel } from './HebrewLetterStatsPanel';
+import { RecognizerLoadingPanel } from './RecognizerLoadingPanel';
 
 import {
   HEBREW_LETTERS,
@@ -12,7 +13,11 @@ import {
   type HebrewLetter,
   type LetterStyle,
 } from '@/lib/hebrew-letters/letters';
-import { initHebrewLetterRecognizer, recognizeHebrewLetter } from '@/lib/hebrew-letters/recognizer';
+import {
+  initHebrewLetterRecognizer,
+  recognizeHebrewLetter,
+  type RecognizerLoadProgress,
+} from '@/lib/hebrew-letters/recognizer';
 import {
   loadHebrewLetterStats,
   recordAttempt,
@@ -37,6 +42,12 @@ interface RoundResult {
   elapsedMs: number;
 }
 
+const INITIAL_LOAD_PROGRESS: RecognizerLoadProgress = {
+  stage: 'fonts',
+  percent: 0,
+  message: 'Starting up…',
+};
+
 function formatElapsed(ms: number): string {
   const seconds = ms / 1000;
   return seconds < 60 ? `${seconds.toFixed(1)}s` : `${Math.floor(seconds / 60)}m ${(seconds % 60).toFixed(0)}s`;
@@ -49,6 +60,7 @@ function confidenceLabel(confidence: number): string {
 export function HebrewLetterTrainer() {
   const canvasRef = useRef<DrawingCanvasHandle>(null);
   const timerRef = useRef<number | null>(null);
+  const loadStartedAtRef = useRef(Date.now());
 
   const [mode, setMode] = useState<TrainerMode>('mixed');
   const [stats, setStats] = useState<HebrewLetterStats>(() => loadHebrewLetterStats());
@@ -57,6 +69,8 @@ export function HebrewLetterTrainer() {
   const [result, setResult] = useState<RoundResult | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [isModelLoading, setIsModelLoading] = useState(true);
+  const [loadProgress, setLoadProgress] = useState<RecognizerLoadProgress>(INITIAL_LOAD_PROGRESS);
+  const [loadElapsedMs, setLoadElapsedMs] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
 
@@ -76,8 +90,13 @@ export function HebrewLetterTrainer() {
 
   useEffect(() => {
     let cancelled = false;
+    loadStartedAtRef.current = Date.now();
 
-    initHebrewLetterRecognizer()
+    initHebrewLetterRecognizer((progress) => {
+      if (!cancelled) {
+        setLoadProgress(progress);
+      }
+    })
       .then(() => {
         if (!cancelled) {
           setIsModelLoading(false);
@@ -95,6 +114,16 @@ export function HebrewLetterTrainer() {
       cancelled = true;
     };
   }, [startRound]);
+
+  useEffect(() => {
+    if (!isModelLoading) return;
+
+    const tick = window.setInterval(() => {
+      setLoadElapsedMs(Date.now() - loadStartedAtRef.current);
+    }, 120);
+
+    return () => window.clearInterval(tick);
+  }, [isModelLoading]);
 
   useEffect(() => {
     if (phase !== 'drawing' || !round) {
@@ -179,30 +208,29 @@ export function HebrewLetterTrainer() {
         <p className="font-sketch text-xl text-gold">Learn Hebrew Letters</p>
         <h2 className="mt-1 font-heading text-2xl text-ink">Draw the letter you see</h2>
         <p className="mt-2 font-body text-sm text-ink/50">
-          Practice block print and script (cursive). A small neural net checks your drawing when you submit.
+          Practice block print and script (cursive). A lightweight neural classifier checks your drawing when you submit.
         </p>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-2">
-        {(['mixed', 'block', 'script'] as const).map((option) => (
-          <Button
-            key={option}
-            type="button"
-            variant={mode === option ? 'default' : 'outline'}
-            size="sm"
-            disabled={isModelLoading || isSubmitting}
-            onClick={() => handleModeChange(option)}
-          >
-            {option === 'mixed' ? 'Mixed' : option === 'block' ? 'Block only' : 'Script only'}
-          </Button>
-        ))}
-      </div>
+      {!isModelLoading ? (
+        <div className="flex flex-wrap justify-center gap-2">
+          {(['mixed', 'block', 'script'] as const).map((option) => (
+            <Button
+              key={option}
+              type="button"
+              variant={mode === option ? 'default' : 'outline'}
+              size="sm"
+              disabled={isSubmitting}
+              onClick={() => handleModeChange(option)}
+            >
+              {option === 'mixed' ? 'Mixed' : option === 'block' ? 'Block only' : 'Script only'}
+            </Button>
+          ))}
+        </div>
+      ) : null}
 
       {isModelLoading ? (
-        <div className="sketch-card bg-white p-8 text-center">
-          <p className="font-body text-sm text-ink/60">Training handwriting model…</p>
-          <p className="mt-1 font-body text-xs text-ink/40">This runs once in your browser (a few seconds).</p>
-        </div>
+        <RecognizerLoadingPanel progress={loadProgress} elapsedMs={loadElapsedMs} />
       ) : null}
 
       {modelError ? (
@@ -249,7 +277,14 @@ export function HebrewLetterTrainer() {
                 Clear
               </Button>
               <Button type="button" onClick={() => void handleSubmit()} disabled={isSubmitting}>
-                {isSubmitting ? 'Checking…' : 'Submit drawing'}
+                {isSubmitting ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Checking…
+                  </span>
+                ) : (
+                  'Submit drawing'
+                )}
               </Button>
             </div>
           ) : (
@@ -263,7 +298,7 @@ export function HebrewLetterTrainer() {
                 {result?.correct ? 'Correct!' : 'Not quite — keep practicing'}
               </p>
               <p className="mt-2 font-body text-sm text-ink/60">
-                Neural net guessed{' '}
+                Classifier guessed{' '}
                 <span className="font-medium text-ink">{predictedLetter?.name ?? 'unknown'}</span> with{' '}
                 {confidenceLabel(result?.confidence ?? 0)} confidence in {formatElapsed(result?.elapsedMs ?? 0)}.
               </p>
@@ -275,13 +310,15 @@ export function HebrewLetterTrainer() {
         </>
       ) : null}
 
-      <HebrewLetterStatsPanel
-        stats={stats}
-        sessionCorrect={sessionCorrect}
-        sessionAttempts={sessionAttempts}
-        sessionElapsedMs={sessionElapsedMs}
-        onReset={handleResetStats}
-      />
+      {!isModelLoading ? (
+        <HebrewLetterStatsPanel
+          stats={stats}
+          sessionCorrect={sessionCorrect}
+          sessionAttempts={sessionAttempts}
+          sessionElapsedMs={sessionElapsedMs}
+          onReset={handleResetStats}
+        />
+      ) : null}
     </div>
   );
 }

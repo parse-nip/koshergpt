@@ -37,7 +37,8 @@ export const LETTER_STYLE_FONTS: Record<LetterStyle, string> = {
   script: '"Gveret Levin", cursive',
 };
 
-export const IMAGE_SIZE = 64;
+/** Smaller grid keeps recognition fast without freezing the page. */
+export const IMAGE_SIZE = 32;
 
 export function pickRandomLetter(): HebrewLetter {
   return HEBREW_LETTERS[Math.floor(Math.random() * HEBREW_LETTERS.length)];

@@ -87,3 +87,14 @@ export function canvasToGrayscaleArray(canvas: HTMLCanvasElement, size = IMAGE_S
 
   return pixels;
 }
+
+export function normalizeVector(vector: Float32Array): void {
+  let sumSq = 0;
+  for (let i = 0; i < vector.length; i++) {
+    sumSq += vector[i] * vector[i];
+  }
+  const norm = Math.sqrt(sumSq) || 1;
+  for (let i = 0; i < vector.length; i++) {
+    vector[i] /= norm;
+  }
+}
