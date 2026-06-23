@@ -30,9 +30,13 @@ export function normalizeDrawingToCanvas(source: HTMLCanvasElement, size = IMAGE
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const alpha = data[(y * width + x) * 4 + 3];
-      const r = data[(y * width + x) * 4];
-      if (alpha > 0 && r < 250) {
+      const offset = (y * width + x) * 4;
+      const alpha = data[offset + 3];
+      const r = data[offset];
+      const g = data[offset + 1];
+      const b = data[offset + 2];
+      const luminance = (r + g + b) / 3;
+      if (alpha > 0 && luminance < 250) {
         minX = Math.min(minX, x);
         minY = Math.min(minY, y);
         maxX = Math.max(maxX, x);
@@ -50,24 +54,14 @@ export function normalizeDrawingToCanvas(source: HTMLCanvasElement, size = IMAGE
 
   const boxW = maxX - minX + 1;
   const boxH = maxY - minY + 1;
-  const padding = size * 0.12;
+  const padding = size * 0.1;
   const scale = Math.min((size - padding * 2) / boxW, (size - padding * 2) / boxH);
   const drawW = boxW * scale;
   const drawH = boxH * scale;
   const offsetX = (size - drawW) / 2;
   const offsetY = (size - drawH) / 2;
 
-  outCtx.drawImage(
-    source,
-    minX,
-    minY,
-    boxW,
-    boxH,
-    offsetX,
-    offsetY,
-    drawW,
-    drawH,
-  );
+  outCtx.drawImage(source, minX, minY, boxW, boxH, offsetX, offsetY, drawW, drawH);
 
   return output;
 }
@@ -86,6 +80,52 @@ export function canvasToGrayscaleArray(canvas: HTMLCanvasElement, size = IMAGE_S
   }
 
   return pixels;
+}
+
+export function binarizePixels(pixels: Float32Array, threshold = 0.18): Uint8Array {
+  const binary = new Uint8Array(pixels.length);
+  for (let i = 0; i < pixels.length; i++) {
+    binary[i] = pixels[i] >= threshold ? 1 : 0;
+  }
+  return binary;
+}
+
+/** Thicken sparse pen strokes so they overlap stroke-style reference glyphs. */
+export function dilateBinary(mask: Uint8Array, size: number, radius = 1): Uint8Array {
+  if (radius <= 0) return mask;
+
+  const out = new Uint8Array(mask.length);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const idx = y * size + x;
+      if (mask[idx] === 0) continue;
+
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+          out[ny * size + nx] = 1;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+export function diceCoefficient(a: Uint8Array, b: Uint8Array): number {
+  let intersection = 0;
+  let sumA = 0;
+  let sumB = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    if (a[i]) sumA += 1;
+    if (b[i]) sumB += 1;
+    if (a[i] && b[i]) intersection += 1;
+  }
+
+  if (sumA === 0 && sumB === 0) return 1;
+  return (2 * intersection) / (sumA + sumB);
 }
 
 export function normalizeVector(vector: Float32Array): void {

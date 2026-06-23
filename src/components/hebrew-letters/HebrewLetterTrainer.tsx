@@ -154,7 +154,7 @@ export function HebrewLetterTrainer() {
 
     setIsSubmitting(true);
     try {
-      const recognition = await recognizeHebrewLetter(canvas);
+      const recognition = await recognizeHebrewLetter(canvas, round.style);
       const elapsed = Date.now() - round.startedAt;
       const correct = recognition.letterId === round.letter.id;
 
@@ -203,12 +203,12 @@ export function HebrewLetterTrainer() {
     : null;
 
   return (
-    <div className="mx-auto max-w-chat space-y-6">
+    <div className="mx-auto max-w-chat space-y-6 overscroll-contain">
       <div className="text-center">
         <p className="font-sketch text-xl text-gold">Learn Hebrew Letters</p>
         <h2 className="mt-1 font-heading text-2xl text-ink">Draw the letter you see</h2>
         <p className="mt-2 font-body text-sm text-ink/50">
-          Practice block print and script (cursive). A lightweight neural classifier checks your drawing when you submit.
+          Practice block print and script (cursive). Shape matching compares your drawing to reference letter templates.
         </p>
       </div>
 
@@ -267,7 +267,7 @@ export function HebrewLetterTrainer() {
 
           <DrawingCanvas
             ref={canvasRef}
-            className="h-64 w-full sm:h-72"
+            className="h-56 w-full min-h-[14rem] sm:h-72"
             disabled={phase === 'result' || isSubmitting}
           />
 
@@ -298,7 +298,7 @@ export function HebrewLetterTrainer() {
                 {result?.correct ? 'Correct!' : 'Not quite — keep practicing'}
               </p>
               <p className="mt-2 font-body text-sm text-ink/60">
-                Classifier guessed{' '}
+                Matcher guessed{' '}
                 <span className="font-medium text-ink">{predictedLetter?.name ?? 'unknown'}</span> with{' '}
                 {confidenceLabel(result?.confidence ?? 0)} confidence in {formatElapsed(result?.elapsedMs ?? 0)}.
               </p>

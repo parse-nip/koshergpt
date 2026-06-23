@@ -13,29 +13,46 @@ interface DrawingCanvasProps {
   disabled?: boolean;
 }
 
+function isCoarsePointer(): boolean {
+  return window.matchMedia('(pointer: coarse)').matches;
+}
+
 export const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>(
   function DrawingCanvas({ className, disabled = false }, ref) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const isDrawingRef = useRef(false);
     const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+    const logicalSizeRef = useRef({ width: 0, height: 0 });
 
     const getPoint = useCallback((event: PointerEvent, canvas: HTMLCanvasElement) => {
       const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
       return {
-        x: (event.clientX - rect.left) * scaleX,
-        y: (event.clientY - rect.top) * scaleY,
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
       };
+    }, []);
+
+    const paintBackground = useCallback((canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) => {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }, []);
+
+    const applyBrush = useCallback((ctx: CanvasRenderingContext2D) => {
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = isCoarsePointer() ? 7 : 5;
+      ctx.strokeStyle = '#2C2A26';
     }, []);
 
     const clear = useCallback(() => {
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext('2d');
       if (!canvas || !ctx) return;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }, []);
+      paintBackground(canvas, ctx);
+    }, [paintBackground]);
 
     const hasInk = useCallback(() => {
       const canvas = canvasRef.current;
@@ -64,32 +81,54 @@ export const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>
 
       const resize = () => {
         const rect = canvas.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
+        if (rect.width < 1 || rect.height < 1) return;
+
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const hadInk = hasInk();
+        let snapshot: ImageData | null = null;
+
+        if (hadInk && logicalSizeRef.current.width > 0) {
+          snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        }
+
         canvas.width = Math.floor(rect.width * dpr);
         canvas.height = Math.floor(rect.height * dpr);
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.scale(dpr, dpr);
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = 5;
-        ctx.strokeStyle = '#2C2A26';
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, rect.width, rect.height);
+        logicalSizeRef.current = { width: rect.width, height: rect.height };
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        applyBrush(ctx);
+        paintBackground(canvas, ctx);
+
+        if (snapshot && logicalSizeRef.current.width > 0) {
+          const restore = document.createElement('canvas');
+          restore.width = snapshot.width;
+          restore.height = snapshot.height;
+          restore.getContext('2d')?.putImageData(snapshot, 0, 0);
+          ctx.drawImage(restore, 0, 0, rect.width, rect.height);
+        }
       };
 
       resize();
-      window.addEventListener('resize', resize);
+      const observer = new ResizeObserver(() => resize());
+      observer.observe(canvas);
 
       const onPointerDown = (event: PointerEvent) => {
         if (disabled) return;
         event.preventDefault();
         isDrawingRef.current = true;
         canvas.setPointerCapture(event.pointerId);
-        lastPointRef.current = getPoint(event, canvas);
+        const point = getPoint(event, canvas);
+        lastPointRef.current = point;
+
+        ctx.beginPath();
+        ctx.moveTo(point.x, point.y);
+        ctx.lineTo(point.x + 0.01, point.y + 0.01);
+        ctx.stroke();
       };
 
       const onPointerMove = (event: PointerEvent) => {
         if (!isDrawingRef.current || disabled) return;
+        event.preventDefault();
         const point = getPoint(event, canvas);
         const last = lastPointRef.current;
         if (!last) return;
@@ -114,29 +153,29 @@ export const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>
       canvas.addEventListener('pointermove', onPointerMove);
       canvas.addEventListener('pointerup', endStroke);
       canvas.addEventListener('pointercancel', endStroke);
-      canvas.addEventListener('pointerleave', endStroke);
 
       return () => {
-        window.removeEventListener('resize', resize);
+        observer.disconnect();
         canvas.removeEventListener('pointerdown', onPointerDown);
         canvas.removeEventListener('pointermove', onPointerMove);
         canvas.removeEventListener('pointerup', endStroke);
         canvas.removeEventListener('pointercancel', endStroke);
-        canvas.removeEventListener('pointerleave', endStroke);
       };
-    }, [disabled, getPoint]);
+    }, [applyBrush, disabled, getPoint, hasInk, paintBackground]);
 
     return (
       <div
         className={cn(
-          'sketch-card relative overflow-hidden bg-white',
+          'sketch-card relative overflow-hidden bg-white select-none',
           disabled && 'opacity-60',
           className,
         )}
+        style={{ touchAction: 'none' }}
       >
         <canvas
           ref={canvasRef}
-          className="h-full w-full touch-none cursor-crosshair"
+          className="h-full w-full cursor-crosshair"
+          style={{ touchAction: 'none' }}
           aria-label="Drawing canvas for Hebrew letter practice"
         />
         <p className="pointer-events-none absolute bottom-2 left-3 font-body text-[11px] text-ink/30">

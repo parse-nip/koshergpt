@@ -37,8 +37,8 @@ export const LETTER_STYLE_FONTS: Record<LetterStyle, string> = {
   script: '"Gveret Levin", cursive',
 };
 
-/** Smaller grid keeps recognition fast without freezing the page. */
-export const IMAGE_SIZE = 32;
+/** Grid size for template matching — balanced for accuracy and speed. */
+export const IMAGE_SIZE = 48;
 
 export function pickRandomLetter(): HebrewLetter {
   return HEBREW_LETTERS[Math.floor(Math.random() * HEBREW_LETTERS.length)];

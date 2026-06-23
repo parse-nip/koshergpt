@@ -4,7 +4,12 @@ import {
   LETTER_STYLE_FONTS,
   type LetterStyle,
 } from './letters';
-import { canvasToGrayscaleArray, normalizeVector } from './imagePreprocess';
+import {
+  binarizePixels,
+  canvasToGrayscaleArray,
+  diceCoefficient,
+  dilateBinary,
+} from './imagePreprocess';
 
 export interface RecognitionResult {
   letterId: string;
@@ -19,12 +24,32 @@ export interface RecognizerLoadProgress {
   detail?: string;
 }
 
+interface LetterTemplate {
+  letterId: string;
+  style: LetterStyle;
+  mask: Uint8Array;
+}
+
 type ProgressCallback = (progress: RecognizerLoadProgress) => void;
 
 const INPUT_DIM = IMAGE_SIZE * IMAGE_SIZE;
-const AUGMENTATIONS_PER_STYLE = 3;
+const STYLE_MATCH_WEIGHT = 1;
+const OTHER_STYLE_WEIGHT = 0.45;
 
-let classWeights: Float32Array | null = null;
+const TEMPLATE_VARIANTS: Array<{
+  rotation: number;
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+  mode: 'stroke' | 'fill';
+}> = [
+  { rotation: 0, scale: 1, offsetX: 0, offsetY: 0, mode: 'stroke' },
+  { rotation: -7, scale: 0.94, offsetX: -1, offsetY: 0, mode: 'stroke' },
+  { rotation: 7, scale: 0.94, offsetX: 1, offsetY: 0, mode: 'stroke' },
+  { rotation: 0, scale: 0.9, offsetX: 0, offsetY: 1, mode: 'fill' },
+];
+
+let templates: LetterTemplate[] = [];
 let initPromise: Promise<void> | null = null;
 
 function yieldToMain(): Promise<void> {
@@ -33,90 +58,98 @@ function yieldToMain(): Promise<void> {
   });
 }
 
-function renderLetterToPixels(
+function renderTemplateMask(
   char: string,
   style: LetterStyle,
-  options?: { rotation?: number; scale?: number; offsetX?: number; offsetY?: number },
-): Float32Array {
+  variant: (typeof TEMPLATE_VARIANTS)[number],
+): Uint8Array {
   const size = IMAGE_SIZE;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return new Float32Array(INPUT_DIM);
+  if (!ctx) return new Uint8Array(INPUT_DIM);
 
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, size, size);
 
-  const rotation = options?.rotation ?? 0;
-  const scale = options?.scale ?? 1;
-  const offsetX = options?.offsetX ?? 0;
-  const offsetY = options?.offsetY ?? 0;
-
   ctx.save();
-  ctx.translate(size / 2 + offsetX, size / 2 + offsetY);
-  ctx.rotate((rotation * Math.PI) / 180);
-  ctx.scale(scale, scale);
+  ctx.translate(size / 2 + variant.offsetX, size / 2 + variant.offsetY);
+  ctx.rotate((variant.rotation * Math.PI) / 180);
+  ctx.scale(variant.scale, variant.scale);
   ctx.fillStyle = '#000000';
+  ctx.strokeStyle = '#000000';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `${Math.floor(size * 0.72)}px ${LETTER_STYLE_FONTS[style]}`;
-  ctx.fillText(char, 0, size * 0.02);
+  ctx.font = `${Math.floor(size * 0.68)}px ${LETTER_STYLE_FONTS[style]}`;
+
+  if (variant.mode === 'stroke') {
+    ctx.lineWidth = Math.max(2, size * 0.1);
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.strokeText(char, 0, size * 0.02);
+  } else {
+    ctx.fillText(char, 0, size * 0.02);
+  }
   ctx.restore();
 
   const { data } = ctx.getImageData(0, 0, size, size);
-  const pixels = new Float32Array(INPUT_DIM);
+  const grayscale = new Float32Array(INPUT_DIM);
   for (let i = 0; i < INPUT_DIM; i++) {
-    pixels[i] = 1 - data[i * 4] / 255;
+    grayscale[i] = 1 - data[i * 4] / 255;
   }
-  return pixels;
+
+  return binarizePixels(grayscale, 0.2);
 }
 
-function softmax(logits: Float32Array): Float32Array {
-  const max = Math.max(...logits);
-  const exps = new Float32Array(logits.length);
-  let sum = 0;
+function scoreTemplates(
+  drawingMask: Uint8Array,
+  style: LetterStyle,
+): Array<{ letterId: string; score: number }> {
+  const bestByLetter = new Map<string, number>();
 
-  for (let i = 0; i < logits.length; i++) {
-    exps[i] = Math.exp(logits[i] - max);
-    sum += exps[i];
-  }
-
-  for (let i = 0; i < exps.length; i++) {
-    exps[i] /= sum || 1;
-  }
-
-  return exps;
-}
-
-function buildLetterCentroid(char: string): Float32Array {
-  const sum = new Float32Array(INPUT_DIM);
-  let count = 0;
-  const styles: LetterStyle[] = ['block', 'script'];
-
-  for (const style of styles) {
-    for (let sample = 0; sample < AUGMENTATIONS_PER_STYLE; sample++) {
-      const pixels = renderLetterToPixels(char, style, {
-        rotation: (Math.random() - 0.5) * 14,
-        scale: 0.85 + Math.random() * 0.2,
-        offsetX: (Math.random() - 0.5) * 4,
-        offsetY: (Math.random() - 0.5) * 4,
-      });
-
-      for (let i = 0; i < INPUT_DIM; i++) {
-        sum[i] += pixels[i];
-      }
-      count += 1;
+  for (const template of templates) {
+    const dice = diceCoefficient(drawingMask, template.mask);
+    const weight = template.style === style ? STYLE_MATCH_WEIGHT : OTHER_STYLE_WEIGHT;
+    const weighted = dice * weight;
+    const prev = bestByLetter.get(template.letterId) ?? 0;
+    if (weighted > prev) {
+      bestByLetter.set(template.letterId, weighted);
     }
   }
 
-  const centroid = new Float32Array(INPUT_DIM);
-  for (let i = 0; i < INPUT_DIM; i++) {
-    centroid[i] = sum[i] / count;
-  }
+  return HEBREW_LETTERS.map((letter) => ({
+    letterId: letter.id,
+    score: bestByLetter.get(letter.id) ?? 0,
+  }));
+}
 
-  normalizeVector(centroid);
-  return centroid;
+function scoresToConfidence(scores: Array<{ letterId: string; score: number }>): Array<{
+  letterId: string;
+  confidence: number;
+}> {
+  const sorted = [...scores].sort((a, b) => b.score - a.score);
+  const best = sorted[0]?.score ?? 0;
+  const second = sorted[1]?.score ?? 0;
+  const margin = Math.max(0, best - second);
+
+  const temperature = 14;
+  const logits = scores.map((entry) => entry.score * temperature);
+  const maxLogit = Math.max(...logits);
+  const exps = logits.map((logit) => Math.exp(logit - maxLogit));
+  const sum = exps.reduce((acc, value) => acc + value, 0) || 1;
+
+  return scores
+    .map((entry, index) => {
+      const softmax = exps[index] / sum;
+      const marginBoost = best > 0 ? margin / best : 0;
+      const confidence = Math.min(0.99, softmax * 0.65 + best * 0.25 + marginBoost * 0.1);
+      return {
+        letterId: entry.letterId,
+        confidence,
+      };
+    })
+    .sort((a, b) => b.confidence - a.confidence);
 }
 
 async function buildRecognizer(onProgress?: ProgressCallback): Promise<void> {
@@ -127,14 +160,25 @@ async function buildRecognizer(onProgress?: ProgressCallback): Promise<void> {
     detail: 'Frank Ruhl Libre & Gveret Levin',
   });
   await document.fonts.ready;
+  await document.fonts.load('48px "Frank Ruhl Libre"');
+  await document.fonts.load('48px "Gveret Levin"');
   await yieldToMain();
 
-  const weights = new Float32Array(HEBREW_LETTERS.length * INPUT_DIM);
+  const built: LetterTemplate[] = [];
 
   for (let letterIndex = 0; letterIndex < HEBREW_LETTERS.length; letterIndex++) {
     const letter = HEBREW_LETTERS[letterIndex];
-    const centroid = buildLetterCentroid(letter.char);
-    weights.set(centroid, letterIndex * INPUT_DIM);
+    const styles: LetterStyle[] = ['block', 'script'];
+
+    for (const style of styles) {
+      for (const variant of TEMPLATE_VARIANTS) {
+        built.push({
+          letterId: letter.id,
+          style,
+          mask: renderTemplateMask(letter.char, style, variant),
+        });
+      }
+    }
 
     const percent = 8 + Math.round(((letterIndex + 1) / HEBREW_LETTERS.length) * 82);
     onProgress?.({
@@ -152,12 +196,12 @@ async function buildRecognizer(onProgress?: ProgressCallback): Promise<void> {
   onProgress?.({
     stage: 'model',
     percent: 96,
-    message: 'Finalizing recognition model…',
-    detail: 'Preparing lightweight classifier',
+    message: 'Finalizing shape matcher…',
+    detail: 'Tuning stroke comparison',
   });
   await yieldToMain();
 
-  classWeights = weights;
+  templates = built;
 
   onProgress?.({
     stage: 'ready',
@@ -167,7 +211,7 @@ async function buildRecognizer(onProgress?: ProgressCallback): Promise<void> {
 }
 
 export async function initHebrewLetterRecognizer(onProgress?: ProgressCallback): Promise<void> {
-  if (classWeights) {
+  if (templates.length > 0) {
     onProgress?.({
       stage: 'ready',
       percent: 100,
@@ -186,35 +230,24 @@ export async function initHebrewLetterRecognizer(onProgress?: ProgressCallback):
 }
 
 export function isRecognizerReady(): boolean {
-  return classWeights !== null;
+  return templates.length > 0;
 }
 
-export async function recognizeHebrewLetter(canvas: HTMLCanvasElement): Promise<RecognitionResult> {
+export async function recognizeHebrewLetter(
+  canvas: HTMLCanvasElement,
+  shownStyle: LetterStyle,
+): Promise<RecognitionResult> {
   await initHebrewLetterRecognizer();
-  if (!classWeights) {
+  if (templates.length === 0) {
     throw new Error('Recognizer failed to initialize');
   }
 
-  const input = canvasToGrayscaleArray(canvas, IMAGE_SIZE);
-  normalizeVector(input);
+  const grayscale = canvasToGrayscaleArray(canvas, IMAGE_SIZE);
+  let drawingMask = binarizePixels(grayscale, 0.18);
+  drawingMask = dilateBinary(drawingMask, IMAGE_SIZE, 2);
 
-  const logits = new Float32Array(HEBREW_LETTERS.length);
-  for (let classIndex = 0; classIndex < HEBREW_LETTERS.length; classIndex++) {
-    const offset = classIndex * INPUT_DIM;
-    let dot = 0;
-    for (let i = 0; i < INPUT_DIM; i++) {
-      dot += classWeights[offset + i] * input[i];
-    }
-    logits[classIndex] = dot;
-  }
-
-  const probs = softmax(logits);
-  const ranked = Array.from(probs)
-    .map((confidence, index) => ({
-      letterId: HEBREW_LETTERS[index].id,
-      confidence,
-    }))
-    .sort((a, b) => b.confidence - a.confidence);
+  const scores = scoreTemplates(drawingMask, shownStyle);
+  const ranked = scoresToConfidence(scores);
 
   return {
     letterId: ranked[0].letterId,
@@ -224,6 +257,6 @@ export async function recognizeHebrewLetter(canvas: HTMLCanvasElement): Promise<
 }
 
 export function disposeRecognizer(): void {
-  classWeights = null;
+  templates = [];
   initPromise = null;
 }
