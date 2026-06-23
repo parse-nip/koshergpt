@@ -10,13 +10,15 @@ import { TypingIndicator } from './components/TypingIndicator';
 import { ResponseDisplay } from './components/ResponseDisplay';
 import { ErrorDisplay } from './components/ErrorDisplay';
 import { Sidebar } from './components/Sidebar';
+import { ModeSelector } from './components/ModeSelector';
 import { IconMenu, IconCopy } from './components/icons';
 
 import { streamChat } from './lib/api';
 import { chatErrorToCopyText } from './lib/chatErrors';
 import { loadChatState, saveChatState } from './lib/chatStorage';
+import { DEFAULT_STUDY_MODE, MODE_META } from './lib/modes';
 
-import type { Message, Conversation } from './types/chat';
+import type { Message, Conversation, StudyMode } from './types/chat';
 
 import {
   clampSidebarWidth,
@@ -29,6 +31,7 @@ import {
 import {
   sanitizeAssistantContent,
   trimMessagesForApi,
+  augmentMessagesForApi,
   composeUserMessage,
   type ReplyTarget,
 } from '@/lib/messageUtils';
@@ -80,6 +83,7 @@ export default function App() {
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const [sidebarWidthPx, setSidebarWidthPx] = useState(() => loadSidebarWidth());
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const [defaultMode, setDefaultMode] = useState<StudyMode>(DEFAULT_STUDY_MODE);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const resizeDragRef = useRef({
@@ -88,6 +92,8 @@ export default function App() {
   });
 
   const activeConversation = conversations.find((c) => c.id === activeConvId) || null;
+  const activeMode: StudyMode = activeConversation?.mode ?? defaultMode;
+  const modeMeta = MODE_META[activeMode];
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -155,7 +161,12 @@ export default function App() {
     };
   }, [isResizingSidebar]);
 
-  async function executeAssistant(convId: string, apiMessages: Message[], persistMessages: Message[]) {
+  async function executeAssistant(
+    convId: string,
+    apiMessages: Message[],
+    persistMessages: Message[],
+    mode: StudyMode,
+  ) {
     let fullResponse = '';
 
     try {
@@ -164,6 +175,7 @@ export default function App() {
 
       await streamChat(
         apiMessages,
+        mode,
         (chunk) => {
           fullResponse += chunk;
           setStreamingContent(fullResponse);
@@ -198,6 +210,19 @@ export default function App() {
     }
   }
 
+  function handleModeChange(nextMode: StudyMode) {
+    if (isStreaming) return;
+
+    if (activeConvId) {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === activeConvId ? { ...c, mode: nextMode } : c)),
+      );
+      return;
+    }
+
+    setDefaultMode(nextMode);
+  }
+
   function handleNewConversation() {
     setReplyTarget(null);
     setActiveConvId(null);
@@ -227,6 +252,7 @@ export default function App() {
         id: convId,
         title,
         messages: [],
+        mode: defaultMode,
       };
 
       setConversations((prev) => [newConv, ...prev]);
@@ -270,7 +296,12 @@ export default function App() {
 
     setReplyTarget(null);
 
-    await executeAssistant(convId, trimMessagesForApi(updatedMessages), updatedMessages);
+    await executeAssistant(
+      convId,
+      augmentMessagesForApi(trimMessagesForApi(updatedMessages), activeMode),
+      updatedMessages,
+      activeMode,
+    );
   }
 
   async function retryAssistantAnswer(assistantIndex: number) {
@@ -287,11 +318,15 @@ export default function App() {
     if (target?.role !== 'assistant') return;
 
     const clipped = trimmed.slice(0, assistantIndex);
-    const apiMessages = trimMessagesForApi(clipped);
 
     setReplyTarget(null);
 
-    await executeAssistant(convId, apiMessages, clipped);
+    await executeAssistant(
+      convId,
+      augmentMessagesForApi(trimMessagesForApi(clipped), conv.mode ?? DEFAULT_STUDY_MODE),
+      clipped,
+      conv.mode ?? DEFAULT_STUDY_MODE,
+    );
   }
 
   function handleCopyConversation() {
@@ -323,6 +358,7 @@ export default function App() {
         <Sidebar
           conversations={conversations}
           activeId={activeConvId}
+          mode={activeMode}
           onSelect={handleSelectConversation}
           onNew={handleNewConversation}
         />
@@ -358,6 +394,7 @@ export default function App() {
           <Sidebar
             conversations={conversations}
             activeId={activeConvId}
+            mode={activeMode}
             onSelect={handleSelectConversation}
             onNew={handleNewConversation}
           />
@@ -377,10 +414,21 @@ export default function App() {
             <IconMenu className="h-5 w-5 text-ink/50" />
           </Button>
 
-          <div className="hidden lg:block" />
+          <div className="hidden items-center gap-3 lg:flex">
+            <ModeSelector mode={activeMode} onChange={handleModeChange} disabled={isStreaming} />
+          </div>
           <Logo size="small" />
 
-          {activeConversation ? (
+          <div className="flex items-center gap-1">
+            <div className="lg:hidden">
+              <ModeSelector
+                mode={activeMode}
+                onChange={handleModeChange}
+                disabled={isStreaming}
+                compact
+              />
+            </div>
+            {activeConversation ? (
             <Button
               type="button"
               variant="ghost"
@@ -392,17 +440,24 @@ export default function App() {
             >
               <IconCopy className="h-4 w-4 text-ink/40" />
             </Button>
-          ) : (
-            <div className="w-9" />
-          )}
+            ) : (
+              <div className="w-9" />
+            )}
+          </div>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8">
           <div className="mx-auto max-w-chat">
             {showHero ? (
               <div className="flex min-h-[55vh] flex-col items-center justify-center">
-                <Logo size="large" />
-                <StarterQuestions onSelect={(q) => void handleSendMessage(q)} />
+                <Logo size="large" mode={activeMode} />
+                <div className="mt-6">
+                  <ModeSelector mode={activeMode} onChange={handleModeChange} disabled={isStreaming} />
+                </div>
+                <p className="mt-3 max-w-md text-center font-body text-xs leading-relaxed text-ink/40">
+                  {modeMeta.description}
+                </p>
+                <StarterQuestions mode={activeMode} onSelect={(q) => void handleSendMessage(q)} />
               </div>
             ) : (
               <div className="space-y-8">
@@ -449,6 +504,7 @@ export default function App() {
                           <ResponseDisplay
                             content={msg.content}
                             isStreaming={false}
+                            mode={activeMode}
                             onFollowUp={(question) => void handleSendMessage(question)}
                             onReply={() => setReplyTarget({ kind: 'assistant', index: i })}
                             onRetry={() => void retryAssistantAnswer(i)}
@@ -461,11 +517,15 @@ export default function App() {
 
                 {isStreaming && streamingContent ? (
                   <div className="answer-block">
-                    <ResponseDisplay content={streamingContent} isStreaming={true} />
+                    <ResponseDisplay
+                      content={streamingContent}
+                      isStreaming={true}
+                      mode={activeMode}
+                    />
                   </div>
                 ) : null}
 
-                {isStreaming && !streamingContent ? <TypingIndicator /> : null}
+                {isStreaming && !streamingContent ? <TypingIndicator mode={activeMode} /> : null}
 
                 <div ref={messagesEndRef} />
               </div>
@@ -478,6 +538,7 @@ export default function App() {
             <ChatInput
               onSubmit={(draft) => void handleSendMessage(draft)}
               disabled={isStreaming}
+              placeholder={modeMeta.inputPlaceholder}
               replyPreview={replyPreview}
               onClearReply={() => setReplyTarget(null)}
             />

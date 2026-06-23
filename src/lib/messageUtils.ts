@@ -1,4 +1,4 @@
-import type { Message } from '@/types/chat';
+import type { Message, StudyMode } from '@/types/chat';
 import type { ChatError } from '@/lib/chatErrors';
 
 export const DEFAULT_EMPTY_ASSISTANT_REPLY =
@@ -55,6 +55,36 @@ export function trimMessagesForApi(messages: Message[]): Message[] {
   }
 
   return out.reverse();
+}
+
+/** Light-touch hints appended only for the API — not stored in the thread. */
+export function augmentMessagesForApi(messages: Message[], mode: StudyMode): Message[] {
+  if (messages.length === 0) return messages;
+
+  const last = messages[messages.length - 1];
+  if (last.role !== 'user') return messages;
+
+  const userTurns = messages.filter((m) => m.role === 'user').length;
+  let hint = '';
+
+  if (mode === 'chavrusa') {
+    hint =
+      userTurns <= 1
+        ? '\n\n[Chavrusa note: engage my thinking — ask before telling when I have not tried yet.]'
+        : '\n\n[Chavrusa note: respond to my latest point specifically; one layer only.]';
+  } else {
+    hint =
+      userTurns <= 1
+        ? '\n\n[Research note: search primary texts on Sefaria first; minimum 3 numbered sources with exact URLs.]'
+        : '\n\n[Research note: build on prior turns; do not repeat the same summary bullets.]';
+  }
+
+  const augmented = [...messages];
+  augmented[augmented.length - 1] = {
+    ...last,
+    content: `${last.content}${hint}`,
+  };
+  return augmented;
 }
 
 export type ReplyTarget = { kind: 'user' | 'assistant'; index: number };
