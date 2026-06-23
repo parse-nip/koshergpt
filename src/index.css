@@ -4,112 +4,157 @@
 
 @layer base {
   :root {
-    --radius: 0.5rem;
+    --radius: 0.375rem;
 
-    --background: 40 39% 94%;
-    --foreground: 240 25% 14%;
+    --background: 60 14% 98%;
+    --foreground: 40 8% 16%;
 
     --card: 0 0% 100%;
-    --card-foreground: 240 25% 14%;
+    --card-foreground: 40 8% 16%;
 
-    --popover: 0 0% 99%;
-    --popover-foreground: 240 25% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 40 8% 16%;
 
-    --primary: 39 54% 50%;
+    --primary: 43 89% 38%;
     --primary-foreground: 0 0% 98%;
 
-    --secondary: 40 28% 90%;
-    --secondary-foreground: 240 25% 14%;
+    --secondary: 40 12% 94%;
+    --secondary-foreground: 40 8% 16%;
 
-    --muted: 40 25% 90%;
-    --muted-foreground: 240 14% 35%;
+    --muted: 40 10% 94%;
+    --muted-foreground: 40 6% 42%;
 
-    --accent: 40 45% 88%;
-    --accent-foreground: 240 25% 14%;
+    --accent: 43 40% 94%;
+    --accent-foreground: 40 8% 16%;
 
     --destructive: 8 71% 45%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 39 31% 86%;
-    --input: 39 31% 86%;
-    --ring: 39 54% 50%;
+    --border: 40 12% 88%;
+    --input: 40 12% 88%;
+    --ring: 43 89% 38%;
   }
 
   body {
-    @apply bg-parchment text-navy font-body antialiased;
-    line-height: 1.5;
+    @apply bg-parchment text-ink font-body antialiased;
+    line-height: 1.6;
+    background-image:
+      radial-gradient(circle at 20% 80%, rgba(184, 134, 11, 0.03) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(91, 127, 166, 0.03) 0%, transparent 50%);
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading;
-    line-height: 1.2;
+    line-height: 1.25;
   }
 }
 
 @layer components {
+  .paper-surface {
+    @apply bg-white/80 backdrop-blur-sm;
+  }
+
+  .sketch-border {
+    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  }
+
+  .sketch-card {
+    @apply border border-parchment-dark bg-white shadow-sketch;
+    border-radius: 12px 4px 10px 3px / 4px 10px 3px 12px;
+  }
+
+  .sketch-card-hover {
+    @apply sketch-card transition-all duration-200;
+  }
+
+  .sketch-card-hover:hover {
+    @apply border-gold/30 shadow-sketch-md -translate-y-px;
+  }
+
+  .notion-block {
+    @apply rounded-md border border-transparent px-1 py-0.5 transition-colors hover:bg-accent/60;
+  }
+
+  .sketch-label {
+    @apply font-sketch text-lg text-gold leading-none;
+  }
+
+  .sketch-divider {
+    @apply h-px w-full border-0 bg-gradient-to-r from-transparent via-parchment-dark to-transparent;
+  }
+
   .source-card {
-    @apply bg-white border border-parchment-dark rounded-lg p-4 transition-all duration-200;
+    @apply sketch-card p-4 transition-all duration-200;
   }
 
   .source-card:hover {
-    @apply shadow-md border-gold/40;
+    @apply border-gold/30 shadow-sketch-md;
   }
 
   .citation-link {
-    @apply text-scholarly-blue font-mono text-sm font-medium cursor-pointer hover:underline;
+    @apply text-scholarly-blue font-mono text-sm font-medium cursor-pointer hover:underline decoration-wavy decoration-gold/40 underline-offset-2;
   }
 
   .typing-dot {
-    @apply w-2 h-2 bg-gold rounded-full inline-block;
+    @apply inline-block h-1.5 w-1.5 rounded-full bg-gold/70;
     animation: bounce 1.4s infinite ease-in-out both;
   }
 
   .typing-dot:nth-child(1) { animation-delay: -0.32s; }
   .typing-dot:nth-child(2) { animation-delay: -0.16s; }
   .typing-dot:nth-child(3) { animation-delay: 0s; }
+
+  .user-bubble {
+    @apply max-w-[min(85%,100%)] break-words bg-ink px-4 py-2.5 font-body text-sm text-white sm:px-5 sm:py-3 sm:text-[15px];
+    border-radius: 16px 4px 14px 16px / 4px 16px 16px 14px;
+  }
+
+  .answer-block {
+    @apply sketch-card p-4 sm:p-5;
+  }
 }
 
 @keyframes bounce {
-  0%, 80%, 100% { transform: scale(0); }
-  40% { transform: scale(1); }
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-parchment;
+  @apply bg-transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-parchment-dark rounded-full;
+  @apply rounded-full bg-parchment-dark/80;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gold/50;
+  @apply bg-gold/40;
 }
 
 .response-content strong {
-  @apply font-bold text-navy;
+  @apply font-semibold text-ink;
 }
 
 .response-content em {
-  @apply italic;
+  @apply italic text-ink/85;
 }
 
 .response-content ul {
-  @apply list-disc pl-6 my-2;
+  @apply my-2 list-disc pl-5;
 }
 
 .response-content ol {
-  @apply list-decimal pl-6 my-2;
+  @apply my-2 list-decimal pl-5;
 }
 
 .response-content li {
-  @apply my-1;
+  @apply my-1.5;
 }
 
 .response-content p {
-  @apply my-2;
+  @apply my-2.5;
 }

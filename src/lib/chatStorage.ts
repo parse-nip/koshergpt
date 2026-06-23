@@ -1,4 +1,5 @@
 import type { Conversation } from '@/types/chat';
+import { migrateLegacyErrorMessage } from '@/lib/messageUtils';
 
 const STORAGE_KEY = 'koshergpt-chats-v1';
 
@@ -14,7 +15,10 @@ function parseState(raw: unknown): ChatPersistState | null {
   if (!Array.isArray(conversations)) return null;
   if (typeof activeConvId !== 'string' && activeConvId != null) return null;
   return {
-    conversations: conversations as Conversation[],
+    conversations: (conversations as Conversation[]).map((conv) => ({
+      ...conv,
+      messages: conv.messages.map((m) => migrateLegacyErrorMessage(m)),
+    })),
     activeConvId: typeof activeConvId === 'string' ? activeConvId : null,
   };
 }

@@ -25,10 +25,10 @@ export function SourceCard({ source }: { source: Source }) {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs font-medium text-scholarly-blue">[{source.number}]</span>
-            <span className="font-body truncate text-sm font-medium text-navy">{source.title}</span>
+            <span className="truncate font-body text-sm font-medium text-ink">{source.title}</span>
           </div>
           {source.description && (
-            <p className="font-body mt-1 text-sm leading-relaxed text-navy/60">{source.description}</p>
+            <p className="mt-1 font-body text-sm leading-relaxed text-ink/55">{source.description}</p>
           )}
         </div>
       </div>

@@ -1,3 +1,5 @@
+import type { ChatError } from '@/lib/chatErrors';
+
 export interface Source {
   number: number;
   title: string;
@@ -11,6 +13,8 @@ export interface Message {
   content: string;
   /** Optional short bubble text (reply threads store full quoting in content) */
   preview?: string;
+  /** Present when the assistant turn failed — do not send to the model */
+  error?: ChatError;
 }
 
 export interface ParsedResponse {

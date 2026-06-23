@@ -15,18 +15,22 @@ interface StarterQuestionsProps {
 
 export function StarterQuestions({ onSelect }: StarterQuestionsProps) {
   return (
-    <div className="mx-auto mt-8 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2">
-      {STARTERS.map((question) => (
-        <Button
-          key={question}
-          type="button"
-          variant="outline"
-          className="hover:border-gold/40 hover:bg-background hover:shadow-sm h-auto min-h-16 justify-start border-parchment-dark bg-white/60 p-4 text-left shadow-none whitespace-normal rounded-lg transition-all duration-200 font-body font-normal text-sm leading-relaxed text-navy/80"
-          onClick={() => onSelect(question)}
-        >
-          {question}
-        </Button>
-      ))}
+    <div className="mx-auto mt-10 w-full max-w-xl">
+      <p className="mb-3 text-center font-sketch text-xl text-ink/40">Try asking…</p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {STARTERS.map((question, i) => (
+          <Button
+            key={question}
+            type="button"
+            variant="outline"
+            className="sketch-card-hover h-auto min-h-14 justify-start whitespace-normal border-parchment-dark bg-white p-3.5 text-left font-body text-[13px] font-normal leading-snug text-ink/75 shadow-sketch hover:text-ink"
+            style={{ transform: i % 2 === 0 ? 'rotate(-0.3deg)' : 'rotate(0.3deg)' }}
+            onClick={() => onSelect(question)}
+          >
+            {question}
+          </Button>
+        ))}
+      </div>
     </div>
   );
 }

@@ -8,10 +8,12 @@ import { ChatInput } from './components/ChatInput';
 import { StarterQuestions } from './components/StarterQuestions';
 import { TypingIndicator } from './components/TypingIndicator';
 import { ResponseDisplay } from './components/ResponseDisplay';
+import { ErrorDisplay } from './components/ErrorDisplay';
 import { Sidebar } from './components/Sidebar';
 import { IconMenu, IconCopy } from './components/icons';
 
 import { streamChat } from './lib/api';
+import { chatErrorToCopyText } from './lib/chatErrors';
 import { loadChatState, saveChatState } from './lib/chatStorage';
 
 import type { Message, Conversation } from './types/chat';
@@ -179,10 +181,8 @@ export default function App() {
         (error) => {
           const errorMessage: Message = {
             role: 'assistant',
-            content:
-              sanitizeAssistantContent(
-                `Something went wrong while contacting the answer service.\n\nDetails: ${error}`,
-              ),
+            content: '',
+            error,
           };
 
           setConversations((prev) =>
@@ -298,7 +298,12 @@ export default function App() {
     if (!activeConversation) return;
     void navigator.clipboard.writeText(
       activeConversation.messages
-        .map((m) => `${m.role === 'user' ? 'Question' : 'Answer'}: ${m.content}`)
+        .map((m) => {
+          if (m.error) {
+            return `Error: ${chatErrorToCopyText(m.error)}`;
+          }
+          return `${m.role === 'user' ? 'Question' : 'Answer'}: ${m.content}`;
+        })
         .join('\n\n---\n\n'),
     );
   }
@@ -331,8 +336,8 @@ export default function App() {
         aria-valuemin={SIDEBAR_WIDTH_MIN}
         aria-valuemax={560}
         aria-valuenow={sidebarWidthPx}
-        className={`relative hidden h-full w-3 shrink-0 select-none touch-none lg:flex lg:cursor-col-resize lg:flex-col lg:items-center lg:justify-center lg:bg-transparent ${
-          isResizingSidebar ? 'lg:bg-gold/15' : 'lg:hover:bg-gold/10'
+        className={`relative hidden h-full w-2 shrink-0 select-none touch-none lg:flex lg:cursor-col-resize lg:flex-col lg:items-center lg:justify-center lg:bg-transparent ${
+          isResizingSidebar ? 'lg:bg-gold-muted/60' : 'lg:hover:bg-gold-muted/40'
         }`}
         onPointerDown={(e) => {
           if (e.button !== 0 && e.button !== undefined) return;
@@ -342,7 +347,7 @@ export default function App() {
         }}
         onDoubleClick={() => setSidebarWidthPx(clampSidebarWidth(SIDEBAR_WIDTH_DEFAULT, window.innerWidth))}
       >
-        <span className="pointer-events-none h-[calc(100%-3rem)] w-px max-w-[1px] rounded-full bg-parchment-dark" aria-hidden />
+        <span className="pointer-events-none h-[calc(100%-3rem)] w-px max-w-[1px] rounded-full bg-parchment-dark/70" aria-hidden />
       </div>
 
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
@@ -360,16 +365,16 @@ export default function App() {
       </Sheet>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex shrink-0 items-center justify-between border-b border-parchment-dark bg-parchment/80 px-4 py-3 backdrop-blur-sm">
+        <header className="paper-surface flex shrink-0 items-center justify-between border-b border-parchment-dark px-4 py-2.5">
           <Button
             type="button"
             variant="ghost"
             size="icon"
             aria-label="Open menu"
-            className="rounded-lg lg:hidden"
+            className="rounded-md lg:hidden"
             onClick={() => setSidebarOpen(true)}
           >
-            <IconMenu className="h-5 w-5 text-navy/60" />
+            <IconMenu className="h-5 w-5 text-ink/50" />
           </Button>
 
           <div className="hidden lg:block" />
@@ -380,27 +385,27 @@ export default function App() {
               type="button"
               variant="ghost"
               size="icon"
-              className="rounded-lg"
+              className="rounded-md"
               title="Copy conversation"
               aria-label="Copy conversation"
               onClick={() => handleCopyConversation()}
             >
-              <IconCopy className="h-4 w-4 text-navy/50" />
+              <IconCopy className="h-4 w-4 text-ink/40" />
             </Button>
           ) : (
             <div className="w-9" />
           )}
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8">
           <div className="mx-auto max-w-chat">
             {showHero ? (
-              <div className="flex min-h-[60vh] flex-col items-center justify-center">
+              <div className="flex min-h-[55vh] flex-col items-center justify-center">
                 <Logo size="large" />
                 <StarterQuestions onSelect={(q) => void handleSendMessage(q)} />
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-8">
                 {threadMessages.map((msg, i) => {
                   const bubbleKey =
                     `${activeConvId ?? 'anon'}-${i}-${msg.role}-${msg.preview ?? msg.content.slice(0, 16)}`;
@@ -408,9 +413,9 @@ export default function App() {
                   if (msg.role === 'user') {
                     const shown = bubbleTextForUserMessage(msg);
                     return (
-                      <div key={bubbleKey} className="space-y-2">
+                      <div key={bubbleKey} className="space-y-1.5">
                         <div className="flex justify-end">
-                          <div className="max-w-[min(85%,100%)] break-words rounded-2xl rounded-tr-sm bg-navy px-4 py-2.5 font-body text-sm text-white sm:px-5 sm:py-3 sm:text-base">
+                          <div className="user-bubble">
                             <div className="whitespace-pre-wrap">{shown}</div>
                           </div>
                         </div>
@@ -420,7 +425,7 @@ export default function App() {
                             <Button
                               type="button"
                               variant="ghost"
-                              className="h-auto px-2 py-1 text-xs font-body text-navy/45 hover:text-navy shadow-none hover:bg-accent/70"
+                              className="h-auto px-2 py-0.5 font-body text-xs text-ink/35 shadow-none hover:bg-accent/70 hover:text-ink/70"
                               onClick={() => setReplyTarget({ kind: 'user', index: i })}
                             >
                               Reply to this
@@ -433,21 +438,29 @@ export default function App() {
 
                   return (
                     <div key={bubbleKey}>
-                      <div className="rounded-xl border border-parchment-dark bg-white/60 p-4 sm:p-5">
-                        <ResponseDisplay
-                          content={msg.content}
-                          isStreaming={false}
-                          onFollowUp={(question) => void handleSendMessage(question)}
-                          onReply={() => setReplyTarget({ kind: 'assistant', index: i })}
-                          onRetry={() => void retryAssistantAnswer(i)}
-                        />
+                      <div className={msg.error ? 'answer-block border-warning-text/15 bg-warning-bg/20' : 'answer-block'}>
+                        {msg.error ? (
+                          <ErrorDisplay
+                            error={msg.error}
+                            onRetry={() => void retryAssistantAnswer(i)}
+                            onReply={() => setReplyTarget({ kind: 'assistant', index: i })}
+                          />
+                        ) : (
+                          <ResponseDisplay
+                            content={msg.content}
+                            isStreaming={false}
+                            onFollowUp={(question) => void handleSendMessage(question)}
+                            onReply={() => setReplyTarget({ kind: 'assistant', index: i })}
+                            onRetry={() => void retryAssistantAnswer(i)}
+                          />
+                        )}
                       </div>
                     </div>
                   );
                 })}
 
                 {isStreaming && streamingContent ? (
-                  <div className="rounded-xl border border-parchment-dark bg-white/60 p-4 sm:p-5">
+                  <div className="answer-block">
                     <ResponseDisplay content={streamingContent} isStreaming={true} />
                   </div>
                 ) : null}
@@ -460,7 +473,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-parchment-dark bg-parchment/80 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-4">
+        <div className="paper-surface shrink-0 border-t border-parchment-dark px-4 py-3 sm:px-6 sm:py-4">
           <div className="mx-auto max-w-chat">
             <ChatInput
               onSubmit={(draft) => void handleSendMessage(draft)}
@@ -471,8 +484,8 @@ export default function App() {
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-parchment-dark bg-parchment px-3 py-2 sm:px-4">
-          <p className="mx-auto max-w-chat text-center font-body text-xs text-navy/40">
+        <div className="shrink-0 border-t border-parchment-dark bg-parchment px-4 py-2.5 sm:px-6">
+          <p className="mx-auto max-w-chat text-center font-body text-[11px] leading-relaxed text-ink/35">
             KosherGPT is an AI research tool for learning and exploration. It does not replace the psak (ruling) of a
             qualified rabbi. Always consult your Local Orthodox Rabbi (LOR) for practical halachic decisions.
           </p>

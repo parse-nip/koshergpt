@@ -1,4 +1,10 @@
 import type { Message } from '../types/chat';
+import type { ChatError } from './chatErrors';
+import {
+  chatErrorFromHttpFailure,
+  chatErrorFromNetworkFailure,
+  chatErrorNoStream,
+} from './chatErrors';
 
 import { extractAssistantDelta } from './extractOpenAIStreamDelta';
 
@@ -10,7 +16,7 @@ export async function streamChat(
   messages: Message[],
   onChunk: (text: string) => void,
   onDone: () => void,
-  onError: (error: string) => void,
+  onError: (error: ChatError) => void,
 ) {
   try {
     const response = await fetch(API_URL, {
@@ -24,13 +30,13 @@ export async function streamChat(
 
     if (!response.ok) {
       const err = await response.text();
-      onError(`API error: ${err}`);
+      onError(chatErrorFromHttpFailure(response.status, err));
       return;
     }
 
     const reader = response.body?.getReader();
     if (!reader) {
-      onError('No response stream available');
+      onError(chatErrorNoStream());
       return;
     }
 
@@ -80,6 +86,6 @@ export async function streamChat(
 
     onDone();
   } catch (error) {
-    onError(String(error));
+    onError(chatErrorFromNetworkFailure(error));
   }
 }

@@ -24,7 +24,6 @@ export function ChatInput({
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
-    /* Reset scrollHeight so clearing input always shrinks the box (fixes “grows each message”). */
     el.style.height = '0px';
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [input]);
@@ -51,20 +50,18 @@ export function ChatInput({
   return (
     <form onSubmit={handleSubmit} className="relative space-y-2">
       {replyPreview ? (
-        <div className="mx-auto flex w-full max-w-chat items-start justify-between gap-2 rounded-lg border border-gold/30 bg-gold/5 px-3 py-2 font-body text-xs text-navy/80">
+        <div className="mx-auto flex w-full max-w-chat items-start justify-between gap-2 rounded-md border border-gold/25 bg-gold-muted/40 px-3 py-2 font-body text-xs text-ink/80">
           <p className="min-w-0 flex-1 whitespace-pre-wrap break-words leading-snug">
-            <span className="font-heading text-[0.65rem] font-bold uppercase tracking-wide text-navy/45">
-              Reply to
-            </span>
+            <span className="font-sketch text-base text-gold">replying to</span>
             <br />
-            <span className="text-navy/70">{replyPreview}</span>
+            <span className="text-ink/65">{replyPreview}</span>
           </p>
           {onClearReply ? (
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-auto shrink-0 px-2 py-1 text-xs shadow-none text-navy/50 hover:text-navy"
+              className="h-auto shrink-0 px-2 py-1 text-xs text-ink/45 shadow-none hover:text-ink"
               onClick={onClearReply}
             >
               Dismiss
@@ -73,25 +70,25 @@ export function ChatInput({
         </div>
       ) : null}
 
-      <div className="mx-auto flex w-full max-w-chat items-center gap-2 rounded-xl border border-parchment-dark bg-white px-3 py-2 shadow-sm transition-all duration-200 focus-within:border-gold/60 focus-within:shadow-md">
+      <div className="mx-auto flex w-full max-w-chat items-end gap-2 rounded-md border border-parchment-dark bg-white px-3 py-2 shadow-soft transition-all duration-200 focus-within:border-gold/40 focus-within:shadow-sketch">
         <Textarea
           ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={
-            placeholder || 'Ask a question about Torah, halacha, or Jewish texts...'
+            placeholder || 'Ask about Torah, halacha, or Jewish texts…'
           }
           disabled={disabled}
           rows={1}
-          className="min-h-11 flex-1 resize-none border-0 bg-transparent px-1 py-1.5 font-body text-base text-navy placeholder:text-navy/40 shadow-none focus-visible:border-0 focus-visible:ring-0 md:text-[15px] leading-relaxed rounded-md"
+          className="min-h-10 flex-1 resize-none rounded-sm border-0 bg-transparent px-1 py-1.5 font-body text-[15px] leading-relaxed text-ink placeholder:text-ink/35 shadow-none focus-visible:border-0 focus-visible:ring-0"
         />
         <Button
           type="submit"
           variant="default"
           size="icon-lg"
           disabled={disabled || !input.trim()}
-          className="shrink-0 rounded-lg bg-gold text-white hover:bg-gold-light disabled:opacity-40"
+          className="mb-0.5 shrink-0 rounded-md bg-gold text-white shadow-sketch hover:bg-gold-light disabled:opacity-35"
           aria-label="Send message"
         >
           <IconSend className="h-4 w-4" />
