@@ -44,7 +44,7 @@ export const LETTER_STYLE_LABELS: Record<LetterStyle, string> = {
   script: 'script (cursive)',
 };
 
-export const IMAGE_SIZE = 48;
+export const IMAGE_SIZE = 64;
 
 const LETTER_NAME_TO_ID = new Map(
   HEBREW_LETTERS.flatMap((letter) => [

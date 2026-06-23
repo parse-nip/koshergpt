@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DrawingCanvas, type DrawingCanvasHandle } from './DrawingCanvas';
 import { HebrewLetterStatsPanel } from './HebrewLetterStatsPanel';
+import { ModelLoadingPanel } from './ModelLoadingPanel';
 
 import {
   HEBREW_LETTERS,
@@ -61,6 +62,8 @@ export function HebrewLetterTrainer() {
   const [result, setResult] = useState<RoundResult | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isModelLoading, setIsModelLoading] = useState(true);
+  const [loadPercent, setLoadPercent] = useState(0);
   const [modelError, setModelError] = useState<string | null>(null);
 
   const [sessionCorrect, setSessionCorrect] = useState(0);
@@ -80,8 +83,27 @@ export function HebrewLetterTrainer() {
   }, []);
 
   useEffect(() => {
-    preloadHebrewMatcher();
-    startRound('mixed');
+    let cancelled = false;
+
+    preloadHebrewMatcher((percent) => {
+      if (!cancelled) setLoadPercent(percent);
+    })
+      .then(() => {
+        if (!cancelled) {
+          setIsModelLoading(false);
+          startRound('mixed');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setModelError('Could not load the Hebrew letter model. Please refresh and try again.');
+          setIsModelLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [startRound]);
 
   useEffect(() => {
@@ -109,15 +131,13 @@ export function HebrewLetterTrainer() {
     if (!round || phase !== 'drawing' || isSubmitting) return;
 
     const canvas = canvasRef.current?.getCanvas();
-    const strokes = canvasRef.current?.getStrokes() ?? [];
-    if (!canvas || strokes.length === 0) return;
+    if (!canvas || !canvasRef.current?.hasInk()) return;
 
     setIsSubmitting(true);
     setModelError(null);
     try {
       const recognition = await recognizeDrawing({
         canvas,
-        strokes,
         expectedLetterId: round.letter.id,
         shownStyle: round.shownStyle,
         targetStyle: round.targetStyle,
@@ -176,11 +196,12 @@ export function HebrewLetterTrainer() {
         <p className="font-sketch text-xl text-gold">Learn Hebrew Letters</p>
         <h2 className="mt-1 font-heading text-2xl text-ink">See one style, draw the other</h2>
         <p className="mt-2 font-body text-sm text-ink/50">
-          See a letter in one style, draw it in the other. Stroke shape matching checks your work — no AI, all on-device.
+          See a letter in one style, draw it in the other. A pre-trained manuscript CNN checks the letter; a quick style check makes sure you flipped block ↔ script.
         </p>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-2">
+      {!isModelLoading ? (
+        <div className="flex flex-wrap justify-center gap-2">
         {(
           [
             ['mixed', 'Mixed'],
@@ -193,13 +214,16 @@ export function HebrewLetterTrainer() {
             type="button"
             variant={mode === option ? 'default' : 'outline'}
             size="sm"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isModelLoading}
             onClick={() => handleModeChange(option)}
           >
             {label}
           </Button>
         ))}
-      </div>
+        </div>
+      ) : null}
+
+      {isModelLoading ? <ModelLoadingPanel percent={loadPercent} /> : null}
 
       {modelError ? (
         <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 font-body text-sm text-destructive">
@@ -207,7 +231,7 @@ export function HebrewLetterTrainer() {
         </div>
       ) : null}
 
-      {round ? (
+      {round && !isModelLoading ? (
         <>
           <div className="sketch-card bg-white p-6 text-center">
             <div className="flex flex-wrap items-center justify-center gap-2">
@@ -300,13 +324,15 @@ export function HebrewLetterTrainer() {
         </>
       ) : null}
 
-      <HebrewLetterStatsPanel
-        stats={stats}
-        sessionCorrect={sessionCorrect}
-        sessionAttempts={sessionAttempts}
-        sessionElapsedMs={sessionElapsedMs}
-        onReset={handleResetStats}
-      />
+      {!isModelLoading ? (
+        <HebrewLetterStatsPanel
+          stats={stats}
+          sessionCorrect={sessionCorrect}
+          sessionAttempts={sessionAttempts}
+          sessionElapsedMs={sessionElapsedMs}
+          onReset={handleResetStats}
+        />
+      ) : null}
     </div>
   );
 }
