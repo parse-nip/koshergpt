@@ -1,7 +1,11 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 
-import type { Point } from '@/lib/hebrew-letters/geometry';
 import { cn } from '@/lib/utils';
+
+interface Point {
+  x: number;
+  y: number;
+}
 
 export interface DrawingCanvasHandle {
   clear: () => void;

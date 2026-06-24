@@ -33,8 +33,8 @@ export function HebrewLetterStatsPanel({
 }: HebrewLetterStatsPanelProps) {
   const overallAccuracy = accuracyPercent(stats.correctCount, stats.totalAttempts);
   const sessionAccuracy = accuracyPercent(sessionCorrect, sessionAttempts);
-  const blockAccuracy = accuracyPercent(stats.blockCorrect, stats.blockAttempts);
-  const scriptAccuracy = accuracyPercent(stats.scriptCorrect, stats.scriptAttempts);
+  const quizAccuracy = accuracyPercent(stats.quizCorrect, stats.quizAttempts);
+  const drawAccuracy = accuracyPercent(stats.drawCorrect, stats.drawAttempts);
 
   return (
     <div className="space-y-4">
@@ -57,8 +57,8 @@ export function HebrewLetterStatsPanel({
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <StatCard label="Drawn in block" value={`${blockAccuracy}%`} hint={`${stats.blockCorrect}/${stats.blockAttempts}`} />
-        <StatCard label="Drawn in script" value={`${scriptAccuracy}%`} hint={`${stats.scriptCorrect}/${stats.scriptAttempts}`} />
+        <StatCard label="Quiz" value={`${quizAccuracy}%`} hint={`${stats.quizCorrect}/${stats.quizAttempts}`} />
+        <StatCard label="Draw practice" value={`${drawAccuracy}%`} hint={`${stats.drawCorrect}/${stats.drawAttempts}`} />
       </div>
 
       {stats.recentAttempts.length > 0 ? (
@@ -67,17 +67,17 @@ export function HebrewLetterStatsPanel({
           <ul className="max-h-40 space-y-1 overflow-y-auto">
             {stats.recentAttempts.slice(0, 10).map((attempt) => {
               const letter = HEBREW_LETTERS.find((l) => l.id === attempt.letterId);
-              const predicted = HEBREW_LETTERS.find((l) => l.id === attempt.predictedLetterId);
               return (
                 <li
-                  key={`${attempt.timestamp}-${attempt.letterId}`}
+                  key={`${attempt.timestamp}-${attempt.letterId}-${attempt.activity}`}
                   className="flex items-center justify-between gap-2 font-body text-xs text-ink/65"
                 >
                   <span>
-                    {letter?.char} ({letter?.name}) · saw {attempt.shownStyle} → drew {attempt.targetStyle}
+                    {attempt.activity === 'quiz' ? 'Quiz' : 'Draw'} · {letter?.char} ({letter?.name}) · {attempt.shownStyle} →{' '}
+                    {attempt.targetStyle}
                   </span>
                   <span className={attempt.correct ? 'text-gold' : 'text-destructive'}>
-                    {attempt.correct ? '✓' : `✗ ${predicted?.name ?? '?'}`} · {(attempt.elapsedMs / 1000).toFixed(1)}s
+                    {attempt.correct ? '✓' : '✗'} · {(attempt.elapsedMs / 1000).toFixed(1)}s
                   </span>
                 </li>
               );

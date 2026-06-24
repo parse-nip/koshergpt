@@ -1,15 +1,16 @@
 import type { LetterStyle } from './letters';
 
-const STORAGE_KEY = 'koshergpt-hebrew-letter-stats-v2';
+const STORAGE_KEY = 'koshergpt-hebrew-letter-stats-v3';
+
+export type ActivityType = 'quiz' | 'draw';
 
 export interface AttemptRecord {
+  activity: ActivityType;
   letterId: string;
   shownStyle: LetterStyle;
   targetStyle: LetterStyle;
   correct: boolean;
   elapsedMs: number;
-  confidence: number;
-  predictedLetterId: string;
   timestamp: number;
 }
 
@@ -19,6 +20,10 @@ export interface HebrewLetterStats {
   currentStreak: number;
   bestStreak: number;
   totalTimeMs: number;
+  quizAttempts: number;
+  quizCorrect: number;
+  drawAttempts: number;
+  drawCorrect: number;
   blockAttempts: number;
   blockCorrect: number;
   scriptAttempts: number;
@@ -32,6 +37,10 @@ const EMPTY_STATS: HebrewLetterStats = {
   currentStreak: 0,
   bestStreak: 0,
   totalTimeMs: 0,
+  quizAttempts: 0,
+  quizCorrect: 0,
+  drawAttempts: 0,
+  drawCorrect: 0,
   blockAttempts: 0,
   blockCorrect: 0,
   scriptAttempts: 0,
@@ -72,14 +81,15 @@ export function recordAttempt(
     currentStreak,
     bestStreak,
     totalTimeMs: stats.totalTimeMs + attempt.elapsedMs,
+    quizAttempts: stats.quizAttempts + (attempt.activity === 'quiz' ? 1 : 0),
+    quizCorrect: stats.quizCorrect + (attempt.activity === 'quiz' && correct ? 1 : 0),
+    drawAttempts: stats.drawAttempts + (attempt.activity === 'draw' ? 1 : 0),
+    drawCorrect: stats.drawCorrect + (attempt.activity === 'draw' && correct ? 1 : 0),
     blockAttempts: stats.blockAttempts + (attempt.targetStyle === 'block' ? 1 : 0),
     blockCorrect: stats.blockCorrect + (attempt.targetStyle === 'block' && correct ? 1 : 0),
     scriptAttempts: stats.scriptAttempts + (attempt.targetStyle === 'script' ? 1 : 0),
     scriptCorrect: stats.scriptCorrect + (attempt.targetStyle === 'script' && correct ? 1 : 0),
-    recentAttempts: [
-      { ...attempt, timestamp: Date.now() },
-      ...stats.recentAttempts,
-    ].slice(0, 30),
+    recentAttempts: [{ ...attempt, timestamp: Date.now() }, ...stats.recentAttempts].slice(0, 30),
   };
 
   saveHebrewLetterStats(next);

@@ -452,7 +452,7 @@ export default function App() {
                   className="sketch-card-hover mt-6 h-auto border-parchment-dark bg-white px-5 py-3 font-body text-sm font-normal text-ink/75 shadow-sketch hover:text-ink"
                   onClick={handleOpenHebrewLetters}
                 >
-                  Practice Hebrew letters — see block, draw script
+                  Practice Hebrew letters — quiz & draw
                 </Button>
               </div>
             ) : (
