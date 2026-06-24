@@ -16,6 +16,17 @@ const HebrewLetterTrainer = lazy(() =>
     default: m.HebrewLetterTrainer,
   })),
 );
+const GematriaTrainer = lazy(() =>
+  import('./components/gematria/GematriaTrainer').then((m) => ({
+    default: m.GematriaTrainer,
+  })),
+);
+const LearnHub = lazy(() =>
+  import('./components/learn/LearnHub').then((m) => ({
+    default: m.LearnHub,
+  })),
+);
+import type { LearnModule } from './components/learn/LearnHub';
 import { IconMenu, IconCopy } from './components/icons';
 
 import { streamChat } from './lib/api';
@@ -213,11 +224,28 @@ export default function App() {
     setAppView('chat');
   }
 
-  function handleOpenHebrewLetters() {
+  function handleOpenLearn() {
     setReplyTarget(null);
     setStreamingContent('');
     setSidebarOpen(false);
-    setAppView('hebrew-letters');
+    setAppView('learn');
+  }
+
+  function handleOpenLearnModule(module: LearnModule) {
+    setReplyTarget(null);
+    setStreamingContent('');
+    setSidebarOpen(false);
+    setAppView(module);
+  }
+
+  function handleBackFromLearn() {
+    if (appView === 'learn') {
+      setAppView('chat');
+      return;
+    }
+    if (appView === 'hebrew-letters' || appView === 'gematria') {
+      setAppView('learn');
+    }
   }
 
   function handleSelectConversation(id: string) {
@@ -325,7 +353,8 @@ export default function App() {
   }
 
   const showHero = activeConvId === null && appView === 'chat';
-  const showHebrewTrainer = appView === 'hebrew-letters';
+  const inLearnFlow = appView !== 'chat';
+  const showLearnContent = appView === 'learn' || appView === 'hebrew-letters' || appView === 'gematria';
 
   const replyPreview =
     !showHero && replyTarget && activeConversation
@@ -343,7 +372,7 @@ export default function App() {
           appView={appView}
           onSelect={handleSelectConversation}
           onNew={handleNewConversation}
-          onOpenHebrewLetters={handleOpenHebrewLetters}
+          onOpenLearn={handleOpenLearn}
         />
       </div>
 
@@ -380,7 +409,7 @@ export default function App() {
             appView={appView}
             onSelect={handleSelectConversation}
             onNew={handleNewConversation}
-            onOpenHebrewLetters={handleOpenHebrewLetters}
+            onOpenLearn={handleOpenLearn}
           />
         </SheetContent>
       </Sheet>
@@ -398,15 +427,15 @@ export default function App() {
             <IconMenu className="h-5 w-5 text-ink/50" />
           </Button>
 
-          {showHebrewTrainer ? (
+          {inLearnFlow ? (
             <Button
               type="button"
               variant="ghost"
               size="sm"
               className="hidden rounded-md font-body text-xs text-ink/50 lg:inline-flex"
-              onClick={() => setAppView('chat')}
+              onClick={handleBackFromLearn}
             >
-              Back to chat
+              {appView === 'learn' ? 'Back to chat' : 'Back to Learn'}
             </Button>
           ) : (
             <div className="hidden lg:block" />
@@ -432,15 +461,54 @@ export default function App() {
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8">
           <div className="mx-auto max-w-chat">
-            {showHebrewTrainer ? (
+            {showLearnContent ? (
               <Suspense
                 fallback={
                   <div className="sketch-card bg-white p-8 text-center font-body text-sm text-ink/60">
-                    Loading Hebrew letter trainer…
+                    Loading…
                   </div>
                 }
               >
-                <HebrewLetterTrainer />
+                {appView === 'learn' ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="mb-4 h-8 px-2 font-body text-xs text-ink/45 lg:hidden"
+                      onClick={handleBackFromLearn}
+                    >
+                      ← Back to chat
+                    </Button>
+                    <LearnHub onOpenModule={handleOpenLearnModule} />
+                  </>
+                ) : appView === 'hebrew-letters' ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="mb-4 h-8 px-2 font-body text-xs text-ink/45 lg:hidden"
+                      onClick={handleBackFromLearn}
+                    >
+                      ← Back to Learn
+                    </Button>
+                    <HebrewLetterTrainer />
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="mb-4 h-8 px-2 font-body text-xs text-ink/45 lg:hidden"
+                      onClick={handleBackFromLearn}
+                    >
+                      ← Back to Learn
+                    </Button>
+                    <GematriaTrainer />
+                  </>
+                )}
               </Suspense>
             ) : showHero ? (
               <div className="flex min-h-[55vh] flex-col items-center justify-center">
@@ -448,11 +516,12 @@ export default function App() {
                 <StarterQuestions onSelect={(q) => void handleSendMessage(q)} />
                 <Button
                   type="button"
-                  variant="outline"
-                  className="sketch-card-hover mt-6 h-auto border-parchment-dark bg-white px-5 py-3 font-body text-sm font-normal text-ink/75 shadow-sketch hover:text-ink"
-                  onClick={handleOpenHebrewLetters}
+                  variant="ghost"
+                  size="sm"
+                  className="mt-4 h-7 px-2 font-body text-xs text-ink/40 hover:text-ink/65"
+                  onClick={handleOpenLearn}
                 >
-                  Practice Hebrew letters — quiz & draw
+                  Explore learning tools →
                 </Button>
               </div>
             ) : (
@@ -524,7 +593,7 @@ export default function App() {
           </div>
         </div>
 
-        {!showHebrewTrainer ? (
+        {!showLearnContent ? (
           <div className="paper-surface shrink-0 border-t border-parchment-dark px-4 py-3 sm:px-6 sm:py-4">
             <div className="mx-auto max-w-chat">
               <ChatInput

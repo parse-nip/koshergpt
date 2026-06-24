@@ -3,7 +3,7 @@ import { Logo } from './Logo';
 import { IconPlus, IconMessageSquare, IconBookOpen } from './icons';
 import type { Conversation } from '../types/chat';
 
-export type AppView = 'chat' | 'hebrew-letters';
+export type AppView = 'chat' | 'learn' | 'hebrew-letters' | 'gematria';
 
 interface SidebarProps {
   conversations: Conversation[];
@@ -11,7 +11,7 @@ interface SidebarProps {
   appView: AppView;
   onSelect: (id: string) => void;
   onNew: () => void;
-  onOpenHebrewLetters: () => void;
+  onOpenLearn: () => void;
 }
 
 export function Sidebar({
@@ -20,8 +20,10 @@ export function Sidebar({
   appView,
   onSelect,
   onNew,
-  onOpenHebrewLetters,
+  onOpenLearn,
 }: SidebarProps) {
+  const isLearnActive = appView !== 'chat';
+
   return (
     <aside className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-r border-parchment-dark bg-parchment/60">
       <div className="border-b border-parchment-dark px-4 py-3.5">
@@ -43,14 +45,12 @@ export function Sidebar({
           type="button"
           variant="outline"
           className={`h-auto w-full justify-start rounded-md border-parchment-dark bg-white px-3 py-2 font-body text-sm font-normal shadow-sketch hover:border-gold/30 hover:bg-gold-muted/30 hover:text-ink ${
-            appView === 'hebrew-letters'
-              ? 'border-gold/25 bg-gold-muted/50 text-ink'
-              : 'text-ink/70'
+            isLearnActive ? 'border-gold/25 bg-gold-muted/50 text-ink' : 'text-ink/70'
           }`}
-          onClick={onOpenHebrewLetters}
+          onClick={onOpenLearn}
         >
           <IconBookOpen className="mr-2 h-4 w-4 text-gold" />
-          Learn Hebrew letters
+          Learn
         </Button>
       </div>
 
@@ -68,7 +68,7 @@ export function Sidebar({
                 key={conv.id}
                 variant="ghost"
                 className={`h-auto min-h-[2.25rem] w-full max-w-full justify-start gap-2 whitespace-normal break-words rounded-md px-2.5 py-2 text-left shadow-none hover:bg-accent/80 ${
-                  activeId === conv.id
+                  activeId === conv.id && appView === 'chat'
                     ? 'border border-gold/25 bg-gold-muted/50 text-ink'
                     : 'text-ink/55 hover:text-ink'
                 }`}
