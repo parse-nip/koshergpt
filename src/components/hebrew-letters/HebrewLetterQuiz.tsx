@@ -93,12 +93,12 @@ export function HebrewLetterQuiz({ mode, stats, onStatsUpdate, onSessionUpdate }
           {round.letter.char}
         </p>
         <p className="mt-3 font-body text-sm text-ink/70">
-          Which is the same letter — <span className="font-medium text-ink">{round.letter.name}</span> — in{' '}
+          Which is the same letter in{' '}
           <span className="font-medium text-gold">{LETTER_STYLE_LABELS[round.targetStyle]}</span>?
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {round.choices.map((choice) => {
           const isCorrect = choice.id === round.letter.id;
           const isPicked = pickedId === choice.id;
@@ -109,21 +109,20 @@ export function HebrewLetterQuiz({ mode, stats, onStatsUpdate, onSessionUpdate }
               variant="outline"
               disabled={answered}
               className={cn(
-                'h-auto min-h-24 flex-col gap-1 border-parchment-dark py-4',
+                'h-auto min-h-[5.5rem] touch-manipulation border-parchment-dark py-5 sm:min-h-24',
                 answered && isCorrect && 'border-gold/50 bg-gold-muted/50',
                 answered && isPicked && !isCorrect && 'border-destructive/40 bg-destructive/10',
               )}
               onClick={() => handlePick(choice.id)}
             >
               <span
-                className="text-4xl leading-none"
+                className="text-5xl leading-none sm:text-4xl"
                 style={{ fontFamily: LETTER_STYLE_FONTS[round.targetStyle] }}
                 dir="rtl"
                 lang="he"
               >
                 {choice.char}
               </span>
-              <span className="font-body text-xs text-ink/50">{choice.name}</span>
             </Button>
           );
         })}
@@ -140,10 +139,14 @@ export function HebrewLetterQuiz({ mode, stats, onStatsUpdate, onSessionUpdate }
           {!wasCorrect ? (
             <p className="mt-1 font-body text-sm text-ink/60">
               The answer was{' '}
-              <span className="font-medium" style={{ fontFamily: LETTER_STYLE_FONTS[round.targetStyle] }} dir="rtl">
+              <span
+                className="text-2xl font-medium leading-none"
+                style={{ fontFamily: LETTER_STYLE_FONTS[round.targetStyle] }}
+                dir="rtl"
+              >
                 {round.letter.char}
-              </span>{' '}
-              ({round.letter.name}).
+              </span>
+              .
             </p>
           ) : null}
           <Button type="button" className="mt-3" onClick={() => startRound(mode)}>

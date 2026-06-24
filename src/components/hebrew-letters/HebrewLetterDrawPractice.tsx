@@ -123,23 +123,28 @@ export function HebrewLetterDrawPractice({
           {round.letter.char}
         </p>
         <p className="mt-3 font-body text-sm text-ink/55">
-          Draw <span className="font-medium text-ink">{round.letter.name}</span> in{' '}
+          Draw this letter in{' '}
           <span className="font-medium text-gold">{LETTER_STYLE_LABELS[round.targetStyle]}</span>
         </p>
       </div>
 
       <DrawingCanvas
         ref={canvasRef}
-        className="h-56 w-full min-h-[14rem] sm:h-72"
+        className="h-64 w-full min-h-[16rem] touch-none sm:h-72"
         disabled={phase === 'review'}
       />
 
       {phase === 'drawing' ? (
-        <div className="flex flex-wrap justify-center gap-2">
-          <Button type="button" variant="outline" onClick={() => canvasRef.current?.clear()}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full touch-manipulation sm:w-auto"
+            onClick={() => canvasRef.current?.clear()}
+          >
             Clear
           </Button>
-          <Button type="button" onClick={handleReveal}>
+          <Button type="button" className="w-full touch-manipulation sm:w-auto" onClick={handleReveal}>
             Compare with answer
           </Button>
         </div>
@@ -165,15 +170,23 @@ export function HebrewLetterDrawPractice({
               >
                 {round.letter.char}
               </p>
-              <p className="mt-1 font-body text-xs text-ink/55">{round.letter.name}</p>
             </div>
           </div>
           <p className="text-center font-body text-sm text-ink/55">Be honest — did you get it right?</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button type="button" variant="outline" onClick={() => handleSelfGrade(false)}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full touch-manipulation sm:w-auto"
+              onClick={() => handleSelfGrade(false)}
+            >
               Still learning
             </Button>
-            <Button type="button" onClick={() => handleSelfGrade(true)}>
+            <Button
+              type="button"
+              className="w-full touch-manipulation sm:w-auto"
+              onClick={() => handleSelfGrade(true)}
+            >
               I got it right
             </Button>
           </div>

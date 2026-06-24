@@ -51,7 +51,7 @@ export const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>
     const applyBrush = useCallback((ctx: CanvasRenderingContext2D) => {
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.lineWidth = isCoarsePointer() ? 7 : 5;
+      ctx.lineWidth = isCoarsePointer() ? 8 : 5;
       ctx.strokeStyle = '#2C2A26';
     }, []);
 
@@ -179,19 +179,19 @@ export const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>
     return (
       <div
         className={cn(
-          'sketch-card relative overflow-hidden bg-white select-none',
-          disabled && 'opacity-60',
+          'sketch-card relative isolate overflow-hidden bg-white select-none touch-none',
+          disabled && 'pointer-events-none opacity-60',
           className,
         )}
         style={{ touchAction: 'none' }}
       >
         <canvas
           ref={canvasRef}
-          className="h-full w-full cursor-crosshair"
+          className="block h-full w-full cursor-crosshair touch-none"
           style={{ touchAction: 'none' }}
           aria-label="Drawing canvas for Hebrew letter practice"
         />
-        <p className="pointer-events-none absolute bottom-2 left-3 font-body text-[11px] text-ink/30">
+        <p className="pointer-events-none absolute bottom-2 left-3 hidden font-body text-[11px] text-ink/30 sm:block">
           Draw with mouse or finger
         </p>
       </div>

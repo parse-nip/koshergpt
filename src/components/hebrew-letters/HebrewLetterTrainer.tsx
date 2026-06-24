@@ -37,7 +37,7 @@ export function HebrewLetterTrainer() {
   };
 
   return (
-    <div className="mx-auto max-w-chat space-y-6 overscroll-contain">
+    <div className="mx-auto max-w-chat space-y-6 overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]">
       <div className="text-center">
         <p className="font-sketch text-xl text-gold">Learn Hebrew Letters</p>
         <h2 className="mt-1 font-heading text-2xl text-ink">Block ↔ script</h2>
@@ -52,17 +52,19 @@ export function HebrewLetterTrainer() {
           type="button"
           variant={activity === 'quiz' ? 'default' : 'outline'}
           size="sm"
+          className="min-h-10 touch-manipulation px-3"
           onClick={() => setActivity('quiz')}
         >
-          Quiz (pick the match)
+          Quiz
         </Button>
         <Button
           type="button"
           variant={activity === 'draw' ? 'default' : 'outline'}
           size="sm"
+          className="min-h-10 touch-manipulation px-3"
           onClick={() => setActivity('draw')}
         >
-          Draw practice
+          Draw
         </Button>
       </div>
 
@@ -70,8 +72,8 @@ export function HebrewLetterTrainer() {
         {(
           [
             ['mixed', 'Mixed'],
-            ['show-block', 'Show block → script'],
-            ['show-script', 'Show script → draw block'],
+            ['show-block', 'Block → script'],
+            ['show-script', 'Script → block'],
           ] as const
         ).map(([option, label]) => (
           <Button
@@ -79,6 +81,7 @@ export function HebrewLetterTrainer() {
             type="button"
             variant={mode === option ? 'secondary' : 'ghost'}
             size="sm"
+            className="min-h-10 touch-manipulation px-3"
             onClick={() => setMode(option)}
           >
             {label}
