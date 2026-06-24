@@ -94,9 +94,10 @@ export function HebrewLetterTrainer() {
           startRound('mixed');
         }
       })
-      .catch(() => {
+      .catch((error) => {
         if (!cancelled) {
-          setModelError('Could not load the Hebrew letter model. Please refresh and try again.');
+          const detail = error instanceof Error ? error.message : 'Unknown error';
+          setModelError(`Could not load the Hebrew letter model (${detail}). Please refresh and try again.`);
           setIsModelLoading(false);
         }
       });

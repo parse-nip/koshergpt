@@ -20,9 +20,14 @@ export async function loadManuscriptModel(onProgress?: (percent: number) => void
 
   loadPromise = (async () => {
     onProgress?.(20);
-    const loaded = await tf.loadLayersModel(MODEL_URL);
-    onProgress?.(100);
-    model = loaded;
+    try {
+      const loaded = await tf.loadLayersModel(MODEL_URL);
+      onProgress?.(100);
+      model = loaded;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to load Hebrew letter model: ${message}`);
+    }
   })().catch((error) => {
     loadPromise = null;
     throw error;

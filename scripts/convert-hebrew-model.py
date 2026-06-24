@@ -24,6 +24,9 @@ def main() -> int:
     print('Loaded model input:', model.input_shape, 'output:', model.output_shape)
     tfjs.converters.save_keras_model(model, str(TARGET))
     print('Saved TF.js model to', TARGET)
+
+    import subprocess
+    subprocess.run([sys.executable, str(ROOT / 'scripts' / 'patch-tfjs-model.py'), str(TARGET / 'model.json')], check=True)
     return 0
 
 
